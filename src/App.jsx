@@ -69,6 +69,7 @@ export default function App() {
   const [authPasswordInput, setAuthPasswordInput] = useState("");
   const [authStatus, setAuthStatus] = useState("");
   const [authUser, setAuthUser] = useState(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const importBackupRef = useRef(null);
   const reminderTickRef = useRef(null);
 
@@ -128,14 +129,17 @@ export default function App() {
     const firebase = getFirebaseConfigInput(firebaseConfigInput);
     if (!isCompleteFirebaseConfig(firebase)) {
       setAuthUser(null);
+      setAuthChecked(true);
       return;
     }
 
     const app = getFirebaseApp(firebase);
     const auth = getAuth(app);
+    setAuthChecked(false);
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setAuthUser(user);
+      setAuthChecked(true);
     });
 
     return () => unsubscribe();
@@ -380,6 +384,27 @@ export default function App() {
     setCloudStatus("Cloud config saved.");
   }
 
+  function saveFirebaseConfigOnly() {
+    const firebase = getFirebaseConfigInput(firebaseConfigInput);
+    if (!isCompleteFirebaseConfig(firebase)) {
+      setAuthStatus("Enter all Firebase config fields.");
+      return;
+    }
+
+    setState((prev) => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        cloud: {
+          ...prev.settings.cloud,
+          enabled: true,
+          firebase,
+        },
+      },
+    }));
+    setAuthStatus("Firebase config saved.");
+  }
+
   async function syncToCloud() {
     try {
       const cloud = buildCloudInput();
@@ -441,7 +466,7 @@ export default function App() {
       }
 
       const cloud = buildCloudInput();
-      assertCloudConfig(cloud);
+      assertFirebaseConfig(cloud.firebase);
 
       const app = getFirebaseApp(cloud.firebase);
       const auth = getAuth(app);
@@ -466,7 +491,7 @@ export default function App() {
       }
 
       const cloud = buildCloudInput();
-      assertCloudConfig(cloud);
+      assertFirebaseConfig(cloud.firebase);
 
       const app = getFirebaseApp(cloud.firebase);
       const auth = getAuth(app);
@@ -481,7 +506,7 @@ export default function App() {
   async function logOutAccount() {
     try {
       const cloud = buildCloudInput();
-      assertCloudConfig(cloud);
+      assertFirebaseConfig(cloud.firebase);
       const app = getFirebaseApp(cloud.firebase);
       const auth = getAuth(app);
       await signOut(auth);
@@ -489,6 +514,82 @@ export default function App() {
     } catch (error) {
       setAuthStatus(`Logout failed: ${getMessage(error)}`);
     }
+  }
+
+  const hasFirebaseConfigured = isCompleteFirebaseConfig(getFirebaseConfigInput(firebaseConfigInput));
+
+  if (!authUser) {
+    return (
+      <div className="app-bg">
+        <Container size="sm" py="xl">
+          <Stack gap="md">
+            <Paper radius="xl" p="lg" className="hero-panel">
+              <img className="hero-logo" src={`${BASE_URL}progressxp-logo.png`} alt="Progress XP logo" />
+            </Paper>
+
+            <Card radius="xl" shadow="sm" withBorder className="glass-card cloud-card">
+              <Stack gap="sm">
+                <Title order={3}>Create Account</Title>
+                <Text c="dimmed" size="sm">
+                  Sign up once to unlock Progress XP and stay logged in across sessions.
+                </Text>
+                <SimpleGrid cols={{ base: 1, md: 2 }}>
+                  <TextInput
+                    label="API Key"
+                    value={firebaseConfigInput.apiKey}
+                    onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, apiKey: e.currentTarget.value }))}
+                  />
+                  <TextInput
+                    label="Auth Domain"
+                    value={firebaseConfigInput.authDomain}
+                    onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, authDomain: e.currentTarget.value }))}
+                  />
+                  <TextInput
+                    label="Project ID"
+                    value={firebaseConfigInput.projectId}
+                    onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, projectId: e.currentTarget.value }))}
+                  />
+                  <TextInput
+                    label="App ID"
+                    value={firebaseConfigInput.appId}
+                    onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, appId: e.currentTarget.value }))}
+                  />
+                </SimpleGrid>
+                <Button variant="light" onClick={saveFirebaseConfigOnly}>Save Firebase Config</Button>
+                <SimpleGrid cols={{ base: 1, md: 2 }}>
+                  <TextInput
+                    label="Email"
+                    placeholder="you@example.com"
+                    value={authEmailInput}
+                    onChange={(e) => setAuthEmailInput(e.currentTarget.value)}
+                  />
+                  <TextInput
+                    type="password"
+                    label="Password"
+                    placeholder="At least 6 characters"
+                    value={authPasswordInput}
+                    onChange={(e) => setAuthPasswordInput(e.currentTarget.value)}
+                  />
+                </SimpleGrid>
+                <Group>
+                  <Button variant="light" onClick={signUpWithEmail}>Sign Up</Button>
+                  <Button onClick={logInWithEmail}>Log In</Button>
+                </Group>
+                {!hasFirebaseConfigured ? (
+                  <Text size="sm" c="dimmed">
+                    Enter Firebase config and save it before signing up.
+                  </Text>
+                ) : null}
+                {hasFirebaseConfigured && !authChecked ? (
+                  <Text size="sm" c="dimmed">Checking saved session...</Text>
+                ) : null}
+                {authStatus ? <Text size="sm" c="blue" className="status-text">{authStatus}</Text> : null}
+              </Stack>
+            </Card>
+          </Stack>
+        </Container>
+      </div>
+    );
   }
 
   return (
@@ -1050,6 +1151,12 @@ function assertCloudConfig(cloud) {
   }
 
   if (!isCompleteFirebaseConfig(cloud.firebase)) {
+    throw new Error("Missing Firebase config");
+  }
+}
+
+function assertFirebaseConfig(firebaseConfig) {
+  if (!isCompleteFirebaseConfig(firebaseConfig)) {
     throw new Error("Missing Firebase config");
   }
 }
