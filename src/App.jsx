@@ -39,6 +39,12 @@ const AUTH_ACTIVITY_KEY = "progressxp-auth-last-active-at";
 const AUTH_MAX_IDLE_MS = 1000 * 60 * 60 * 24 * 30;
 const MAX_SESSIONS = 25;
 const BASE_URL = import.meta.env.BASE_URL || "/";
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
+};
 
 const DEFAULT_SETTINGS = {
   dailyGoalMinutes: 30,
@@ -48,12 +54,7 @@ const DEFAULT_SETTINGS = {
   cloud: {
     enabled: false,
     syncId: "",
-    firebase: {
-      apiKey: "",
-      authDomain: "",
-      projectId: "",
-      appId: "",
-    },
+    firebase: DEFAULT_FIREBASE_CONFIG,
   },
 };
 
@@ -70,7 +71,6 @@ export default function App() {
   const [weeklyGoalInput, setWeeklyGoalInput] = useState(String(state.settings.weeklyGoalMinutes));
   const [reminderTimeInput, setReminderTimeInput] = useState(state.settings.reminderTime);
   const [syncIdInput, setSyncIdInput] = useState(state.settings.cloud.syncId);
-  const [firebaseConfigInput, setFirebaseConfigInput] = useState({ ...state.settings.cloud.firebase });
   const [authEmailInput, setAuthEmailInput] = useState("");
   const [authPasswordInput, setAuthPasswordInput] = useState("");
   const [authStatus, setAuthStatus] = useState("");
@@ -88,7 +88,6 @@ export default function App() {
     setWeeklyGoalInput(String(state.settings.weeklyGoalMinutes));
     setReminderTimeInput(state.settings.reminderTime);
     setSyncIdInput(state.settings.cloud.syncId);
-    setFirebaseConfigInput({ ...state.settings.cloud.firebase });
   }, [state.settings]);
 
   useEffect(() => {
@@ -132,7 +131,7 @@ export default function App() {
   }, [state.settings.reminderEnabled, state.settings.reminderTime]);
 
   useEffect(() => {
-    const firebase = getFirebaseConfigInput(firebaseConfigInput);
+    const firebase = getResolvedFirebaseConfig(state.settings.cloud.firebase);
     if (!isCompleteFirebaseConfig(firebase)) {
       setAuthUser(null);
       setAuthChecked(true);
@@ -169,12 +168,7 @@ export default function App() {
     });
 
     return () => unsubscribe();
-  }, [
-    firebaseConfigInput.apiKey,
-    firebaseConfigInput.authDomain,
-    firebaseConfigInput.projectId,
-    firebaseConfigInput.appId,
-  ]);
+  }, [state.settings.cloud.firebase]);
 
   const totals = useMemo(() => {
     return Object.entries(state.totals).sort((a, b) => b[1] - a[1]);
@@ -218,7 +212,7 @@ export default function App() {
     return {
       ...state.settings.cloud,
       syncId: syncIdInput.trim(),
-      firebase: getFirebaseConfigInput(firebaseConfigInput),
+      firebase: getResolvedFirebaseConfig(state.settings.cloud.firebase),
     };
   }
 
@@ -398,37 +392,11 @@ export default function App() {
           ...prev.settings.cloud,
           enabled: true,
           syncId: syncIdInput.trim(),
-          firebase: {
-            apiKey: firebaseConfigInput.apiKey.trim(),
-            authDomain: firebaseConfigInput.authDomain.trim(),
-            projectId: firebaseConfigInput.projectId.trim(),
-            appId: firebaseConfigInput.appId.trim(),
-          },
+          firebase: getResolvedFirebaseConfig(prev.settings.cloud.firebase),
         },
       },
     }));
-    setCloudStatus("Cloud config saved.");
-  }
-
-  function saveFirebaseConfigOnly() {
-    const firebase = getFirebaseConfigInput(firebaseConfigInput);
-    if (!isCompleteFirebaseConfig(firebase)) {
-      setAuthStatus("Enter all Firebase config fields.");
-      return;
-    }
-
-    setState((prev) => ({
-      ...prev,
-      settings: {
-        ...prev.settings,
-        cloud: {
-          ...prev.settings.cloud,
-          enabled: true,
-          firebase,
-        },
-      },
-    }));
-    setAuthStatus("Firebase config saved.");
+    setCloudStatus("Sync settings saved.");
   }
 
   async function syncToCloud() {
@@ -573,7 +541,9 @@ export default function App() {
     }
   }
 
-  const hasFirebaseConfigured = isCompleteFirebaseConfig(getFirebaseConfigInput(firebaseConfigInput));
+  const hasFirebaseConfigured = isCompleteFirebaseConfig(
+    getResolvedFirebaseConfig(state.settings.cloud.firebase)
+  );
 
   if (!authUser) {
     return (
@@ -592,29 +562,6 @@ export default function App() {
                 </Text>
                 <SimpleGrid cols={{ base: 1, md: 2 }}>
                   <TextInput
-                    label="API Key"
-                    value={firebaseConfigInput.apiKey}
-                    onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, apiKey: e.currentTarget.value }))}
-                  />
-                  <TextInput
-                    label="Auth Domain"
-                    value={firebaseConfigInput.authDomain}
-                    onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, authDomain: e.currentTarget.value }))}
-                  />
-                  <TextInput
-                    label="Project ID"
-                    value={firebaseConfigInput.projectId}
-                    onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, projectId: e.currentTarget.value }))}
-                  />
-                  <TextInput
-                    label="App ID"
-                    value={firebaseConfigInput.appId}
-                    onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, appId: e.currentTarget.value }))}
-                  />
-                </SimpleGrid>
-                <Button variant="light" onClick={saveFirebaseConfigOnly}>Save Firebase Config</Button>
-                <SimpleGrid cols={{ base: 1, md: 2 }}>
-                  <TextInput
                     label="Email"
                     placeholder="you@example.com"
                     value={authEmailInput}
@@ -629,19 +576,20 @@ export default function App() {
                   />
                 </SimpleGrid>
                 <Group>
-                  <Button variant="light" onClick={() => signInWithProvider("google")}>Continue with Google</Button>
-                  <Button variant="light" onClick={() => signInWithProvider("apple")}>Continue with Apple</Button>
+                  <Button className="auth-provider-btn google-btn" variant="light" onClick={() => signInWithProvider("google")}>
+                    Continue with Google
+                  </Button>
+                  <Button className="auth-provider-btn apple-btn" variant="light" onClick={() => signInWithProvider("apple")}>
+                    Continue with Apple
+                  </Button>
                 </Group>
-                <Text size="xs" c="dimmed">
-                  Enable Google and Apple providers in Firebase Authentication.
-                </Text>
                 <Group>
                   <Button variant="light" onClick={signUpWithEmail}>Sign Up</Button>
                   <Button onClick={logInWithEmail}>Log In</Button>
                 </Group>
                 {!hasFirebaseConfigured ? (
                   <Text size="sm" c="dimmed">
-                    Enter Firebase config and save it before signing up.
+                    Login is not available yet. Firebase sign-in providers must be enabled.
                   </Text>
                 ) : null}
                 {hasFirebaseConfigured && !authChecked ? (
@@ -855,14 +803,10 @@ export default function App() {
 
           <Card radius="xl" shadow="sm" withBorder className="glass-card cloud-card">
             <Stack gap="sm">
-              <Title order={3}>Cloud Sync (Firebase)</Title>
-              <Text c="dimmed" size="sm">Set your Firebase config and Sync ID once, then sync between devices.</Text>
-              <SimpleGrid cols={{ base: 1, md: 2 }}>
+              <Title order={3}>Cloud Sync</Title>
+              <Text c="dimmed" size="sm">Use your Sync ID to keep your data aligned across devices.</Text>
+              <SimpleGrid cols={{ base: 1, md: 1 }}>
                 <TextInput label="Sync ID" placeholder="hussein-main" value={syncIdInput} onChange={(e) => setSyncIdInput(e.currentTarget.value)} />
-                <TextInput label="API Key" value={firebaseConfigInput.apiKey} onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, apiKey: e.currentTarget.value }))} />
-                <TextInput label="Auth Domain" value={firebaseConfigInput.authDomain} onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, authDomain: e.currentTarget.value }))} />
-                <TextInput label="Project ID" value={firebaseConfigInput.projectId} onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, projectId: e.currentTarget.value }))} />
-                <TextInput label="App ID" value={firebaseConfigInput.appId} onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, appId: e.currentTarget.value }))} />
               </SimpleGrid>
               <Paper withBorder radius="md" p="sm" className="row-paper">
                 <Stack gap="sm">
@@ -886,8 +830,8 @@ export default function App() {
                     />
                   </SimpleGrid>
                   <Group>
-                    <Button variant="light" onClick={() => signInWithProvider("google")}>Google</Button>
-                    <Button variant="light" onClick={() => signInWithProvider("apple")}>Apple</Button>
+                    <Button className="auth-provider-btn google-btn" variant="light" onClick={() => signInWithProvider("google")}>Google</Button>
+                    <Button className="auth-provider-btn apple-btn" variant="light" onClick={() => signInWithProvider("apple")}>Apple</Button>
                     <Button variant="light" onClick={signUpWithEmail}>Sign Up</Button>
                     <Button onClick={logInWithEmail}>Log In</Button>
                     <Button color="gray" onClick={logOutAccount}>Log Out</Button>
@@ -896,7 +840,7 @@ export default function App() {
                 </Stack>
               </Paper>
               <Group>
-                <Button variant="light" onClick={saveCloudConfig}>Save Config</Button>
+                <Button variant="light" onClick={saveCloudConfig}>Save Sync ID</Button>
                 <Button onClick={syncToCloud}>Sync Up</Button>
                 <Button color="cyan" onClick={syncFromCloud}>Sync Down</Button>
               </Group>
@@ -1006,6 +950,7 @@ function mergeSettings(input) {
   const source = input && typeof input === "object" ? input : {};
   const cloudSource = source.cloud && typeof source.cloud === "object" ? source.cloud : {};
   const firebaseSource = cloudSource.firebase && typeof cloudSource.firebase === "object" ? cloudSource.firebase : {};
+  const resolvedFirebase = getResolvedFirebaseConfig(firebaseSource);
 
   return {
     dailyGoalMinutes: clampInt(source.dailyGoalMinutes, 1, 1440, DEFAULT_SETTINGS.dailyGoalMinutes),
@@ -1015,12 +960,7 @@ function mergeSettings(input) {
     cloud: {
       enabled: Boolean(cloudSource.enabled),
       syncId: typeof cloudSource.syncId === "string" ? cloudSource.syncId : "",
-      firebase: {
-        apiKey: typeof firebaseSource.apiKey === "string" ? firebaseSource.apiKey : "",
-        authDomain: typeof firebaseSource.authDomain === "string" ? firebaseSource.authDomain : "",
-        projectId: typeof firebaseSource.projectId === "string" ? firebaseSource.projectId : "",
-        appId: typeof firebaseSource.appId === "string" ? firebaseSource.appId : "",
-      },
+      firebase: resolvedFirebase,
     },
   };
 }
@@ -1227,13 +1167,20 @@ function assertFirebaseConfig(firebaseConfig) {
   }
 }
 
-function getFirebaseConfigInput(firebaseInput) {
+function getResolvedFirebaseConfig(firebaseInput) {
   const source = firebaseInput && typeof firebaseInput === "object" ? firebaseInput : {};
+  const fallback = DEFAULT_FIREBASE_CONFIG;
   return {
-    apiKey: typeof source.apiKey === "string" ? source.apiKey.trim() : "",
-    authDomain: typeof source.authDomain === "string" ? source.authDomain.trim() : "",
-    projectId: typeof source.projectId === "string" ? source.projectId.trim() : "",
-    appId: typeof source.appId === "string" ? source.appId.trim() : "",
+    apiKey: typeof source.apiKey === "string" && source.apiKey.trim() ? source.apiKey.trim() : fallback.apiKey,
+    authDomain:
+      typeof source.authDomain === "string" && source.authDomain.trim()
+        ? source.authDomain.trim()
+        : fallback.authDomain,
+    projectId:
+      typeof source.projectId === "string" && source.projectId.trim()
+        ? source.projectId.trim()
+        : fallback.projectId,
+    appId: typeof source.appId === "string" && source.appId.trim() ? source.appId.trim() : fallback.appId,
   };
 }
 

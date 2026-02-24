@@ -175,6 +175,27 @@ body {
   color: #0b5cae;
 }
 
+.auth-provider-btn {
+  min-width: 180px;
+  font-weight: 700;
+  border: 1px solid rgba(122, 143, 173, 0.4);
+}
+
+.auth-provider-btn.google-btn {
+  background: linear-gradient(130deg, #ffffff, #f6fbff);
+  color: #1f3048;
+}
+
+.auth-provider-btn.apple-btn {
+  background: linear-gradient(130deg, #222a35, #131923);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+.auth-provider-btn.apple-btn:hover {
+  background: linear-gradient(130deg, #2f3845, #1b222d);
+}
+
 .mantine-SegmentedControl-root {
   border-radius: 12px;
   background: rgba(15, 31, 54, 0.08);
