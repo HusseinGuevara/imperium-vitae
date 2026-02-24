@@ -67,6 +67,19 @@
         <h2>Recent Sessions</h2>
         <ul id="sessionsList"></ul>
       </section>
+
+      <section class="card backup">
+        <h2>Backup & Restore</h2>
+        <p class="backup-text">
+          Export your data to a backup file, then save it in iCloud Drive or Files.
+        </p>
+        <div class="row">
+          <button id="exportBackupBtn" class="btn btn-secondary" type="button">Export Backup</button>
+          <button id="importBackupBtn" class="btn btn-primary" type="button">Import Backup</button>
+          <input id="importBackupInput" type="file" accept="application/json" hidden />
+        </div>
+        <p id="backupStatus" class="backup-status" aria-live="polite"></p>
+      </section>
     </main>
 
     <script src="./app.js"></script>

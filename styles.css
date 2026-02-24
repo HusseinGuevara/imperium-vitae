@@ -51,6 +51,10 @@ body {
   grid-column: 1 / -1;
 }
 
+.backup {
+  grid-column: 1 / -1;
+}
+
 h1,
 h2,
 p {
@@ -205,6 +209,18 @@ input {
   font-size: 0.74rem;
   color: var(--text);
   font-weight: 700;
+}
+
+.backup-text {
+  margin: 0.15rem 0 0.8rem;
+  color: var(--muted);
+}
+
+.backup-status {
+  margin-top: 0.75rem;
+  min-height: 1.2em;
+  font-size: 0.92rem;
+  color: var(--accent);
 }
 
 ul {

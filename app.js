@@ -12,6 +12,10 @@ const sessionsList = document.getElementById("sessionsList");
 const chartHobbyFilter = document.getElementById("chartHobbyFilter");
 const chartBars = document.getElementById("chartBars");
 const periodButtons = Array.from(document.querySelectorAll(".period-btn"));
+const exportBackupBtn = document.getElementById("exportBackupBtn");
+const importBackupBtn = document.getElementById("importBackupBtn");
+const importBackupInput = document.getElementById("importBackupInput");
+const backupStatus = document.getElementById("backupStatus");
 
 let state = loadState();
 let activeSession = null;
@@ -62,6 +66,9 @@ function bindEvents() {
 
   startBtn.addEventListener("click", startSession);
   stopBtn.addEventListener("click", stopSession);
+  exportBackupBtn.addEventListener("click", exportBackup);
+  importBackupBtn.addEventListener("click", () => importBackupInput.click());
+  importBackupInput.addEventListener("change", importBackup);
 }
 
 function addHobby() {
@@ -415,6 +422,131 @@ function loadState() {
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+function exportBackup() {
+  const backup = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data: state,
+  };
+
+  const fileName = `hobby-tracker-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  const blob = new Blob([JSON.stringify(backup, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+
+  setBackupStatus("Backup exported. Save it to Files or iCloud Drive.");
+}
+
+async function importBackup(event) {
+  const file = event.target.files && event.target.files[0];
+  importBackupInput.value = "";
+  if (!file) return;
+
+  if (activeSession) {
+    setBackupStatus("Stop the current timer before importing a backup.");
+    return;
+  }
+
+  try {
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const imported = parsed && parsed.data ? parsed.data : parsed;
+    const normalized = normalizeBackupData(imported);
+
+    if (!normalized.sessions.length && !normalized.hobbies.length) {
+      throw new Error("Backup file is empty.");
+    }
+
+    const shouldReplace = window.confirm(
+      "Importing will replace your current data on this device. Continue?"
+    );
+    if (!shouldReplace) {
+      setBackupStatus("Import canceled.");
+      return;
+    }
+
+    state = normalized;
+    ensureDefaultHobby();
+    saveState();
+    renderHobbyOptions();
+    renderChartHobbyOptions();
+    renderTotals();
+    renderSessions();
+    renderChart();
+
+    setBackupStatus("Backup imported successfully.");
+  } catch {
+    setBackupStatus("Import failed. Please choose a valid backup JSON file.");
+  }
+}
+
+function normalizeBackupData(input) {
+  const source = input && typeof input === "object" ? input : {};
+  const hobbies = Array.isArray(source.hobbies)
+    ? source.hobbies
+        .filter((item) => typeof item === "string")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+
+  const totals = {};
+  if (source.totals && typeof source.totals === "object") {
+    Object.entries(source.totals).forEach(([name, seconds]) => {
+      if (typeof name !== "string") return;
+      const value = Number(seconds);
+      if (!Number.isFinite(value) || value < 0) return;
+      totals[name] = Math.floor(value);
+    });
+  }
+
+  const sessions = Array.isArray(source.sessions)
+    ? source.sessions
+        .filter((entry) => entry && typeof entry === "object")
+        .map((entry) => {
+          const hobby = typeof entry.hobby === "string" ? entry.hobby.trim() : "";
+          const startedAt = Number(entry.startedAt);
+          const endedAt = Number(entry.endedAt);
+          const duration = Math.floor(Number(entry.duration));
+          if (!hobby || !Number.isFinite(endedAt) || !Number.isFinite(duration) || duration < 0) {
+            return null;
+          }
+          return {
+            hobby,
+            startedAt: Number.isFinite(startedAt) ? startedAt : Math.max(0, endedAt - duration * 1000),
+            endedAt,
+            duration,
+          };
+        })
+        .filter(Boolean)
+    : [];
+
+  const hobbiesFromTotals = Object.keys(totals);
+  const hobbiesFromSessions = sessions.map((item) => item.hobby);
+  const hobbySet = new Set([...hobbies, ...hobbiesFromTotals, ...hobbiesFromSessions]);
+
+  return {
+    hobbies: [...hobbySet],
+    selectedHobby:
+      typeof source.selectedHobby === "string" && hobbySet.has(source.selectedHobby)
+        ? source.selectedHobby
+        : "",
+    totals,
+    sessions: sessions.sort((a, b) => b.endedAt - a.endedAt).slice(0, MAX_SESSIONS),
+  };
+}
+
+function setBackupStatus(text) {
+  backupStatus.textContent = text;
 }
 
 function escapeHtml(value) {
