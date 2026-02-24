@@ -414,11 +414,6 @@ export default function App() {
         <Stack gap="md">
           <Paper radius="xl" p="lg" className="hero-panel">
             <img className="hero-logo" src={`${BASE_URL}progressxp-logo.png`} alt="Progress XP logo" />
-            <Badge className="hero-badge" size="lg" radius="xl" variant="white">
-              Build momentum daily
-            </Badge>
-            <Title order={1}>Progress XP</Title>
-            <Text c="dimmed">Track your time, hit your goals, keep your streak, and sync across devices.</Text>
           </Paper>
 
           <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
