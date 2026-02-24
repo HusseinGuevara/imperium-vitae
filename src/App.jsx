@@ -514,7 +514,7 @@ export default function App() {
               <Text size="sm" c="dimmed" className="section-subtitle">
                 Review daily, weekly, monthly, and yearly consistency.
               </Text>
-              <Group grow>
+              <SimpleGrid cols={{ base: 1, md: 2 }} spacing="sm">
                 <SegmentedControl
                   fullWidth
                   value={chartPeriod}
@@ -526,8 +526,12 @@ export default function App() {
                     { value: "yearly", label: "Yearly" },
                   ]}
                 />
-                <Select data={chartHobbyOptions} value={chartHobby} onChange={(value) => setChartHobby(value || "__all__")} />
-              </Group>
+                <Select
+                  data={chartHobbyOptions}
+                  value={chartHobby}
+                  onChange={(value) => setChartHobby(value || "__all__")}
+                />
+              </SimpleGrid>
               <div className="chart-wrap">
                 {chartBuckets.map((bucket) => {
                   const barHeight = Math.round((bucket.seconds / maxSeconds) * 160) + 6;
