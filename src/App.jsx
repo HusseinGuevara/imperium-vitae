@@ -31,6 +31,8 @@ import {
 } from "@mantine/core";
 
 const STORAGE_KEY = "hobby-time-tracker-v1";
+const AUTH_ACTIVITY_KEY = "progressxp-auth-last-active-at";
+const AUTH_MAX_IDLE_MS = 1000 * 60 * 60 * 24 * 30;
 const MAX_SESSIONS = 25;
 const BASE_URL = import.meta.env.BASE_URL || "/";
 
@@ -137,7 +139,27 @@ export default function App() {
     const auth = getAuth(app);
     setAuthChecked(false);
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setAuthUser(null);
+        setAuthChecked(true);
+        return;
+      }
+
+      const lastActive = getAuthLastActiveAt();
+      if (isAuthExpired(lastActive)) {
+        try {
+          await signOut(auth);
+        } catch {
+          // Ignore sign-out failure and still force local logged-out state.
+        }
+        setAuthUser(null);
+        setAuthStatus("Session expired. Please log in again.");
+        setAuthChecked(true);
+        return;
+      }
+
+      markAuthActivity();
       setAuthUser(user);
       setAuthChecked(true);
     });
@@ -477,6 +499,7 @@ export default function App() {
         authPasswordInput
       );
 
+      markAuthActivity();
       setAuthStatus(`Account created: ${credential.user.email || "signed in"}.`);
     } catch (error) {
       setAuthStatus(`Sign up failed: ${getMessage(error)}`);
@@ -497,6 +520,7 @@ export default function App() {
       const auth = getAuth(app);
       await setPersistence(auth, browserLocalPersistence);
       const credential = await signInWithEmailAndPassword(auth, authEmailInput.trim(), authPasswordInput);
+      markAuthActivity();
       setAuthStatus(`Logged in: ${credential.user.email || "account"}.`);
     } catch (error) {
       setAuthStatus(`Login failed: ${getMessage(error)}`);
@@ -510,6 +534,7 @@ export default function App() {
       const app = getFirebaseApp(cloud.firebase);
       const auth = getAuth(app);
       await signOut(auth);
+      localStorage.removeItem(AUTH_ACTIVITY_KEY);
       setAuthStatus("Logged out.");
     } catch (error) {
       setAuthStatus(`Logout failed: ${getMessage(error)}`);
@@ -1243,4 +1268,19 @@ function clampInt(value, min, max, fallback) {
 
 function isValidTime(value) {
   return typeof value === "string" && /^\d{2}:\d{2}$/.test(value);
+}
+
+function getAuthLastActiveAt() {
+  const raw = localStorage.getItem(AUTH_ACTIVITY_KEY);
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : 0;
+}
+
+function isAuthExpired(lastActiveAt) {
+  if (!lastActiveAt) return false;
+  return Date.now() - lastActiveAt > AUTH_MAX_IDLE_MS;
+}
+
+function markAuthActivity() {
+  localStorage.setItem(AUTH_ACTIVITY_KEY, String(Date.now()));
 }
