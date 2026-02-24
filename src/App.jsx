@@ -4,10 +4,14 @@ import {
   browserLocalPersistence,
   createUserWithEmailAndPassword,
   getAuth,
+  GoogleAuthProvider,
+  OAuthProvider,
   onAuthStateChanged,
   setPersistence,
   signInAnonymously,
   signInWithEmailAndPassword,
+  signInWithPopup,
+  signInWithRedirect,
   signOut,
 } from "firebase/auth";
 import { doc, getDoc, getFirestore, setDoc } from "firebase/firestore";
@@ -541,6 +545,34 @@ export default function App() {
     }
   }
 
+  async function signInWithProvider(providerId) {
+    try {
+      const cloud = buildCloudInput();
+      assertFirebaseConfig(cloud.firebase);
+
+      const app = getFirebaseApp(cloud.firebase);
+      const auth = getAuth(app);
+      await setPersistence(auth, browserLocalPersistence);
+
+      const provider = createAuthProvider(providerId);
+
+      try {
+        await signInWithPopup(auth, provider);
+        markAuthActivity();
+        setAuthStatus(`Logged in with ${providerId === "google" ? "Google" : "Apple"}.`);
+      } catch (popupError) {
+        const code = popupError && typeof popupError.code === "string" ? popupError.code : "";
+        if (code === "auth/popup-blocked" || code === "auth/operation-not-supported-in-this-environment") {
+          await signInWithRedirect(auth, provider);
+          return;
+        }
+        throw popupError;
+      }
+    } catch (error) {
+      setAuthStatus(`Social login failed: ${getMessage(error)}`);
+    }
+  }
+
   const hasFirebaseConfigured = isCompleteFirebaseConfig(getFirebaseConfigInput(firebaseConfigInput));
 
   if (!authUser) {
@@ -596,6 +628,13 @@ export default function App() {
                     onChange={(e) => setAuthPasswordInput(e.currentTarget.value)}
                   />
                 </SimpleGrid>
+                <Group>
+                  <Button variant="light" onClick={() => signInWithProvider("google")}>Continue with Google</Button>
+                  <Button variant="light" onClick={() => signInWithProvider("apple")}>Continue with Apple</Button>
+                </Group>
+                <Text size="xs" c="dimmed">
+                  Enable Google and Apple providers in Firebase Authentication.
+                </Text>
                 <Group>
                   <Button variant="light" onClick={signUpWithEmail}>Sign Up</Button>
                   <Button onClick={logInWithEmail}>Log In</Button>
@@ -847,6 +886,8 @@ export default function App() {
                     />
                   </SimpleGrid>
                   <Group>
+                    <Button variant="light" onClick={() => signInWithProvider("google")}>Google</Button>
+                    <Button variant="light" onClick={() => signInWithProvider("apple")}>Apple</Button>
                     <Button variant="light" onClick={signUpWithEmail}>Sign Up</Button>
                     <Button onClick={logInWithEmail}>Log In</Button>
                     <Button color="gray" onClick={logOutAccount}>Log Out</Button>
@@ -1211,6 +1252,18 @@ function getFirebaseApp(firebaseConfig) {
   return getApps().some((item) => item.name === appName)
     ? getApp(appName)
     : initializeApp(firebaseConfig, appName);
+}
+
+function createAuthProvider(providerId) {
+  if (providerId === "google") {
+    return new GoogleAuthProvider();
+  }
+
+  if (providerId === "apple") {
+    return new OAuthProvider("apple.com");
+  }
+
+  throw new Error("Unsupported sign-in provider");
 }
 
 function getMessage(error) {
