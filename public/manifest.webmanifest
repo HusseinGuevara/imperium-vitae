@@ -1,6 +1,6 @@
 {
-  "name": "Hobby Time Tracker",
-  "short_name": "Hobby Timer",
+  "name": "Progress XP",
+  "short_name": "Progress XP",
   "description": "Track daily practice time for hobbies.",
   "start_url": "./",
   "scope": "./",

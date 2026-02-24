@@ -386,7 +386,7 @@ export default function App() {
   return (
     <main className="app">
       <section className="card hero">
-        <h1>Hobby Time Tracker</h1>
+        <h1>Progress XP</h1>
         <p>Track your time, hit your goals, keep your streak, and sync across devices.</p>
       </section>
 
@@ -902,7 +902,7 @@ function maybeTriggerReminder(reminderTime) {
   if (navigator.serviceWorker && navigator.serviceWorker.ready) {
     navigator.serviceWorker.ready
       .then((registration) => {
-        registration.showNotification("Hobby Time Tracker", {
+        registration.showNotification("Progress XP", {
           body: "Time for your practice session.",
           icon: `${window.location.origin}/HobbyTimer/icon-192.png`,
           badge: `${window.location.origin}/HobbyTimer/icon-192.png`,
@@ -910,12 +910,12 @@ function maybeTriggerReminder(reminderTime) {
         });
       })
       .catch(() => {
-        new Notification("Hobby Time Tracker", { body: "Time for your practice session." });
+        new Notification("Progress XP", { body: "Time for your practice session." });
       });
     return;
   }
 
-  new Notification("Hobby Time Tracker", { body: "Time for your practice session." });
+  new Notification("Progress XP", { body: "Time for your practice session." });
 }
 
 async function getCloudDb(firebaseConfig) {

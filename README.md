@@ -1,4 +1,4 @@
-# Hobby Time Tracker (React + Vite)
+# Progress XP (React + Vite)
 
 This app is now built with React and deployed to GitHub Pages via GitHub Actions.
 
