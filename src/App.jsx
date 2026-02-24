@@ -1,6 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { getApp, getApps, initializeApp } from "firebase/app";
-import { getAuth, signInAnonymously } from "firebase/auth";
+import {
+  browserLocalPersistence,
+  createUserWithEmailAndPassword,
+  getAuth,
+  onAuthStateChanged,
+  setPersistence,
+  signInAnonymously,
+  signInWithEmailAndPassword,
+  signOut,
+} from "firebase/auth";
 import { doc, getDoc, getFirestore, setDoc } from "firebase/firestore";
 import {
   Badge,
@@ -56,6 +65,10 @@ export default function App() {
   const [reminderTimeInput, setReminderTimeInput] = useState(state.settings.reminderTime);
   const [syncIdInput, setSyncIdInput] = useState(state.settings.cloud.syncId);
   const [firebaseConfigInput, setFirebaseConfigInput] = useState({ ...state.settings.cloud.firebase });
+  const [authEmailInput, setAuthEmailInput] = useState("");
+  const [authPasswordInput, setAuthPasswordInput] = useState("");
+  const [authStatus, setAuthStatus] = useState("");
+  const [authUser, setAuthUser] = useState(null);
   const importBackupRef = useRef(null);
   const reminderTickRef = useRef(null);
 
@@ -111,6 +124,28 @@ export default function App() {
     };
   }, [state.settings.reminderEnabled, state.settings.reminderTime]);
 
+  useEffect(() => {
+    const firebase = getFirebaseConfigInput(firebaseConfigInput);
+    if (!isCompleteFirebaseConfig(firebase)) {
+      setAuthUser(null);
+      return;
+    }
+
+    const app = getFirebaseApp(firebase);
+    const auth = getAuth(app);
+
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setAuthUser(user);
+    });
+
+    return () => unsubscribe();
+  }, [
+    firebaseConfigInput.apiKey,
+    firebaseConfigInput.authDomain,
+    firebaseConfigInput.projectId,
+    firebaseConfigInput.appId,
+  ]);
+
   const totals = useMemo(() => {
     return Object.entries(state.totals).sort((a, b) => b[1] - a[1]);
   }, [state.totals]);
@@ -148,6 +183,14 @@ export default function App() {
     () => [{ value: "__all__", label: "All Hobbies" }, ...hobbyOptions],
     [hobbyOptions]
   );
+
+  function buildCloudInput() {
+    return {
+      ...state.settings.cloud,
+      syncId: syncIdInput.trim(),
+      firebase: getFirebaseConfigInput(firebaseConfigInput),
+    };
+  }
 
   function addHobby() {
     const hobby = newHobby.trim();
@@ -339,19 +382,10 @@ export default function App() {
 
   async function syncToCloud() {
     try {
-      const cloud = {
-        ...state.settings.cloud,
-        syncId: syncIdInput.trim(),
-        firebase: {
-          apiKey: firebaseConfigInput.apiKey.trim(),
-          authDomain: firebaseConfigInput.authDomain.trim(),
-          projectId: firebaseConfigInput.projectId.trim(),
-          appId: firebaseConfigInput.appId.trim(),
-        },
-      };
+      const cloud = buildCloudInput();
 
       assertCloudConfig(cloud);
-      const { db, uid } = await getCloudDb(cloud.firebase);
+      const { db, uid } = await getCloudDb(cloud.firebase, true);
       await setDoc(doc(db, "hobby_timer_sync", cloud.syncId), {
         updatedAt: Date.now(),
         ownerUid: uid,
@@ -365,19 +399,10 @@ export default function App() {
 
   async function syncFromCloud() {
     try {
-      const cloud = {
-        ...state.settings.cloud,
-        syncId: syncIdInput.trim(),
-        firebase: {
-          apiKey: firebaseConfigInput.apiKey.trim(),
-          authDomain: firebaseConfigInput.authDomain.trim(),
-          projectId: firebaseConfigInput.projectId.trim(),
-          appId: firebaseConfigInput.appId.trim(),
-        },
-      };
+      const cloud = buildCloudInput();
 
       assertCloudConfig(cloud);
-      const { db, uid } = await getCloudDb(cloud.firebase);
+      const { db, uid } = await getCloudDb(cloud.firebase, true);
       const snapshot = await getDoc(doc(db, "hobby_timer_sync", cloud.syncId));
 
       if (!snapshot.exists()) {
@@ -405,6 +430,64 @@ export default function App() {
       setCloudStatus("Downloaded from cloud.");
     } catch (error) {
       setCloudStatus(`Cloud download failed: ${getMessage(error)}`);
+    }
+  }
+
+  async function signUpWithEmail() {
+    try {
+      if (!authEmailInput.trim() || !authPasswordInput) {
+        setAuthStatus("Enter an email and password.");
+        return;
+      }
+
+      const cloud = buildCloudInput();
+      assertCloudConfig(cloud);
+
+      const app = getFirebaseApp(cloud.firebase);
+      const auth = getAuth(app);
+      await setPersistence(auth, browserLocalPersistence);
+      const credential = await createUserWithEmailAndPassword(
+        auth,
+        authEmailInput.trim(),
+        authPasswordInput
+      );
+
+      setAuthStatus(`Account created: ${credential.user.email || "signed in"}.`);
+    } catch (error) {
+      setAuthStatus(`Sign up failed: ${getMessage(error)}`);
+    }
+  }
+
+  async function logInWithEmail() {
+    try {
+      if (!authEmailInput.trim() || !authPasswordInput) {
+        setAuthStatus("Enter an email and password.");
+        return;
+      }
+
+      const cloud = buildCloudInput();
+      assertCloudConfig(cloud);
+
+      const app = getFirebaseApp(cloud.firebase);
+      const auth = getAuth(app);
+      await setPersistence(auth, browserLocalPersistence);
+      const credential = await signInWithEmailAndPassword(auth, authEmailInput.trim(), authPasswordInput);
+      setAuthStatus(`Logged in: ${credential.user.email || "account"}.`);
+    } catch (error) {
+      setAuthStatus(`Login failed: ${getMessage(error)}`);
+    }
+  }
+
+  async function logOutAccount() {
+    try {
+      const cloud = buildCloudInput();
+      assertCloudConfig(cloud);
+      const app = getFirebaseApp(cloud.firebase);
+      const auth = getAuth(app);
+      await signOut(auth);
+      setAuthStatus("Logged out.");
+    } catch (error) {
+      setAuthStatus(`Logout failed: ${getMessage(error)}`);
     }
   }
 
@@ -616,6 +699,35 @@ export default function App() {
                 <TextInput label="Project ID" value={firebaseConfigInput.projectId} onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, projectId: e.currentTarget.value }))} />
                 <TextInput label="App ID" value={firebaseConfigInput.appId} onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, appId: e.currentTarget.value }))} />
               </SimpleGrid>
+              <Paper withBorder radius="md" p="sm" className="row-paper">
+                <Stack gap="sm">
+                  <Title order={5}>Account (Email Login)</Title>
+                  <Text size="sm" c="dimmed">
+                    {authUser ? `Logged in as ${authUser.email || authUser.uid}` : "Not logged in"}
+                  </Text>
+                  <SimpleGrid cols={{ base: 1, md: 2 }} spacing="sm">
+                    <TextInput
+                      label="Email"
+                      placeholder="you@example.com"
+                      value={authEmailInput}
+                      onChange={(e) => setAuthEmailInput(e.currentTarget.value)}
+                    />
+                    <TextInput
+                      type="password"
+                      label="Password"
+                      placeholder="At least 6 characters"
+                      value={authPasswordInput}
+                      onChange={(e) => setAuthPasswordInput(e.currentTarget.value)}
+                    />
+                  </SimpleGrid>
+                  <Group>
+                    <Button variant="light" onClick={signUpWithEmail}>Sign Up</Button>
+                    <Button onClick={logInWithEmail}>Log In</Button>
+                    <Button color="gray" onClick={logOutAccount}>Log Out</Button>
+                  </Group>
+                  {authStatus ? <Text size="sm" c="blue" className="status-text">{authStatus}</Text> : null}
+                </Stack>
+              </Paper>
               <Group>
                 <Button variant="light" onClick={saveCloudConfig}>Save Config</Button>
                 <Button onClick={syncToCloud}>Sync Up</Button>
@@ -916,15 +1028,20 @@ function maybeTriggerReminder(reminderTime) {
   new Notification("Progress XP", { body: "Time for your practice session." });
 }
 
-async function getCloudDb(firebaseConfig) {
-  const appName = `hobby-tracker-${firebaseConfig.projectId}`;
-  const app = getApps().some((item) => item.name === appName)
-    ? getApp(appName)
-    : initializeApp(firebaseConfig, appName);
-
+async function getCloudDb(firebaseConfig, requireSignedIn = false) {
+  const app = getFirebaseApp(firebaseConfig);
   const auth = getAuth(app);
-  const credential = await signInAnonymously(auth);
-  return { db: getFirestore(app), uid: credential.user.uid };
+  await setPersistence(auth, browserLocalPersistence);
+
+  if (!auth.currentUser && !requireSignedIn) {
+    await signInAnonymously(auth);
+  }
+
+  if (!auth.currentUser) {
+    throw new Error("Please log in with email before syncing.");
+  }
+
+  return { db: getFirestore(app), uid: auth.currentUser.uid };
 }
 
 function assertCloudConfig(cloud) {
@@ -932,10 +1049,36 @@ function assertCloudConfig(cloud) {
     throw new Error("Missing Sync ID");
   }
 
-  const { apiKey, authDomain, projectId, appId } = cloud.firebase;
-  if (!apiKey || !authDomain || !projectId || !appId) {
+  if (!isCompleteFirebaseConfig(cloud.firebase)) {
     throw new Error("Missing Firebase config");
   }
+}
+
+function getFirebaseConfigInput(firebaseInput) {
+  const source = firebaseInput && typeof firebaseInput === "object" ? firebaseInput : {};
+  return {
+    apiKey: typeof source.apiKey === "string" ? source.apiKey.trim() : "",
+    authDomain: typeof source.authDomain === "string" ? source.authDomain.trim() : "",
+    projectId: typeof source.projectId === "string" ? source.projectId.trim() : "",
+    appId: typeof source.appId === "string" ? source.appId.trim() : "",
+  };
+}
+
+function isCompleteFirebaseConfig(firebaseConfig) {
+  return Boolean(
+    firebaseConfig &&
+      firebaseConfig.apiKey &&
+      firebaseConfig.authDomain &&
+      firebaseConfig.projectId &&
+      firebaseConfig.appId
+  );
+}
+
+function getFirebaseApp(firebaseConfig) {
+  const appName = `hobby-tracker-${firebaseConfig.projectId}`;
+  return getApps().some((item) => item.name === appName)
+    ? getApp(appName)
+    : initializeApp(firebaseConfig, appName);
 }
 
 function getMessage(error) {
