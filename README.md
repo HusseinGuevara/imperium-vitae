@@ -33,3 +33,14 @@ Live URL:
 ## Backup
 
 Use the app's `Export Backup` and `Import Backup` buttons to move data between devices.
+
+## Cloud Sync (Firebase)
+
+The app supports optional cross-device cloud sync using Firebase Firestore.
+
+1. Create a Firebase project.
+2. Enable `Authentication` -> `Anonymous`.
+3. Enable `Firestore Database`.
+4. Copy web app config values (`apiKey`, `authDomain`, `projectId`, `appId`) into the app's Cloud Sync section.
+5. Set the same `Sync ID` on each device.
+6. Use `Sync Up` and `Sync Down`.

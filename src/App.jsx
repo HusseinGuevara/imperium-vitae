@@ -1,7 +1,27 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { initializeApp } from "firebase/app";
+import { getAuth, signInAnonymously } from "firebase/auth";
+import { doc, getDoc, getFirestore, setDoc } from "firebase/firestore";
 
 const STORAGE_KEY = "hobby-time-tracker-v1";
 const MAX_SESSIONS = 25;
+
+const DEFAULT_SETTINGS = {
+  dailyGoalMinutes: 30,
+  weeklyGoalMinutes: 180,
+  reminderTime: "19:00",
+  reminderEnabled: false,
+  cloud: {
+    enabled: false,
+    syncId: "",
+    firebase: {
+      apiKey: "",
+      authDomain: "",
+      projectId: "",
+      appId: "",
+    },
+  },
+};
 
 export default function App() {
   const [state, setState] = useState(() => prepareState(loadState()));
@@ -11,11 +31,26 @@ export default function App() {
   const [chartPeriod, setChartPeriod] = useState("daily");
   const [chartHobby, setChartHobby] = useState("__all__");
   const [backupStatus, setBackupStatus] = useState("");
+  const [cloudStatus, setCloudStatus] = useState("");
+  const [dailyGoalInput, setDailyGoalInput] = useState(String(state.settings.dailyGoalMinutes));
+  const [weeklyGoalInput, setWeeklyGoalInput] = useState(String(state.settings.weeklyGoalMinutes));
+  const [reminderTimeInput, setReminderTimeInput] = useState(state.settings.reminderTime);
+  const [syncIdInput, setSyncIdInput] = useState(state.settings.cloud.syncId);
+  const [firebaseConfigInput, setFirebaseConfigInput] = useState({ ...state.settings.cloud.firebase });
   const importBackupRef = useRef(null);
+  const reminderTickRef = useRef(null);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
+
+  useEffect(() => {
+    setDailyGoalInput(String(state.settings.dailyGoalMinutes));
+    setWeeklyGoalInput(String(state.settings.weeklyGoalMinutes));
+    setReminderTimeInput(state.settings.reminderTime);
+    setSyncIdInput(state.settings.cloud.syncId);
+    setFirebaseConfigInput({ ...state.settings.cloud.firebase });
+  }, [state.settings]);
 
   useEffect(() => {
     if (!activeSession) {
@@ -38,6 +73,25 @@ export default function App() {
     setChartHobby("__all__");
   }, [chartHobby, state.hobbies]);
 
+  useEffect(() => {
+    if (!state.settings.reminderEnabled) {
+      if (reminderTickRef.current) clearInterval(reminderTickRef.current);
+      reminderTickRef.current = null;
+      return;
+    }
+
+    const tick = () => {
+      maybeTriggerReminder(state.settings.reminderTime);
+    };
+
+    tick();
+    reminderTickRef.current = setInterval(tick, 30000);
+    return () => {
+      if (reminderTickRef.current) clearInterval(reminderTickRef.current);
+      reminderTickRef.current = null;
+    };
+  }, [state.settings.reminderEnabled, state.settings.reminderTime]);
+
   const totals = useMemo(() => {
     return Object.entries(state.totals).sort((a, b) => b[1] - a[1]);
   }, [state.totals]);
@@ -49,6 +103,26 @@ export default function App() {
   const maxSeconds = useMemo(() => {
     return Math.max(1, ...chartBuckets.map((item) => item.seconds));
   }, [chartBuckets]);
+
+  const goals = useMemo(() => {
+    const todaySeconds = getTodaySeconds(state.sessions);
+    const weekSeconds = getCurrentWeekSeconds(state.sessions);
+    const dailyGoalSeconds = state.settings.dailyGoalMinutes * 60;
+    const weeklyGoalSeconds = state.settings.weeklyGoalMinutes * 60;
+
+    return {
+      todaySeconds,
+      weekSeconds,
+      dailyGoalSeconds,
+      weeklyGoalSeconds,
+      dailyPercent: Math.min(100, Math.round((todaySeconds / Math.max(1, dailyGoalSeconds)) * 100)),
+      weeklyPercent: Math.min(100, Math.round((weekSeconds / Math.max(1, weeklyGoalSeconds)) * 100)),
+    };
+  }, [state.sessions, state.settings.dailyGoalMinutes, state.settings.weeklyGoalMinutes]);
+
+  const streak = useMemo(() => {
+    return getStreak(state.sessions, state.settings.dailyGoalMinutes * 60);
+  }, [state.sessions, state.settings.dailyGoalMinutes]);
 
   function addHobby() {
     const hobby = newHobby.trim();
@@ -103,7 +177,7 @@ export default function App() {
 
   function exportBackup() {
     const backup = {
-      version: 1,
+      version: 2,
       exportedAt: new Date().toISOString(),
       data: state,
     };
@@ -160,11 +234,153 @@ export default function App() {
     }
   }
 
+  function saveGoals() {
+    const daily = clampInt(dailyGoalInput, 1, 1440, state.settings.dailyGoalMinutes);
+    const weekly = clampInt(weeklyGoalInput, 1, 10080, state.settings.weeklyGoalMinutes);
+
+    setState((prev) => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        dailyGoalMinutes: daily,
+        weeklyGoalMinutes: weekly,
+      },
+    }));
+    setBackupStatus("Goals updated.");
+  }
+
+  async function toggleReminders(enabled) {
+    if (enabled) {
+      if (!("Notification" in window)) {
+        setBackupStatus("Notifications are not supported in this browser.");
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setBackupStatus("Notification permission denied.");
+        return;
+      }
+    }
+
+    setState((prev) => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        reminderEnabled: enabled,
+      },
+    }));
+
+    setBackupStatus(enabled ? "Daily reminders enabled." : "Daily reminders disabled.");
+  }
+
+  function saveReminderTime() {
+    if (!/^\d{2}:\d{2}$/.test(reminderTimeInput)) {
+      setBackupStatus("Enter a valid reminder time.");
+      return;
+    }
+
+    setState((prev) => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        reminderTime: reminderTimeInput,
+      },
+    }));
+
+    setBackupStatus("Reminder time updated.");
+  }
+
+  function saveCloudConfig() {
+    setState((prev) => ({
+      ...prev,
+      settings: {
+        ...prev.settings,
+        cloud: {
+          ...prev.settings.cloud,
+          enabled: true,
+          syncId: syncIdInput.trim(),
+          firebase: {
+            apiKey: firebaseConfigInput.apiKey.trim(),
+            authDomain: firebaseConfigInput.authDomain.trim(),
+            projectId: firebaseConfigInput.projectId.trim(),
+            appId: firebaseConfigInput.appId.trim(),
+          },
+        },
+      },
+    }));
+    setCloudStatus("Cloud config saved.");
+  }
+
+  async function syncToCloud() {
+    try {
+      const cloud = {
+        ...state.settings.cloud,
+        syncId: syncIdInput.trim(),
+        firebase: {
+          apiKey: firebaseConfigInput.apiKey.trim(),
+          authDomain: firebaseConfigInput.authDomain.trim(),
+          projectId: firebaseConfigInput.projectId.trim(),
+          appId: firebaseConfigInput.appId.trim(),
+        },
+      };
+
+      assertCloudConfig(cloud);
+      const db = await getCloudDb(cloud.firebase);
+      await setDoc(doc(db, "hobby_timer_sync", cloud.syncId), {
+        updatedAt: Date.now(),
+        data: state,
+      });
+      setCloudStatus("Synced to cloud.");
+    } catch (error) {
+      setCloudStatus(`Cloud sync failed: ${getMessage(error)}`);
+    }
+  }
+
+  async function syncFromCloud() {
+    try {
+      const cloud = {
+        ...state.settings.cloud,
+        syncId: syncIdInput.trim(),
+        firebase: {
+          apiKey: firebaseConfigInput.apiKey.trim(),
+          authDomain: firebaseConfigInput.authDomain.trim(),
+          projectId: firebaseConfigInput.projectId.trim(),
+          appId: firebaseConfigInput.appId.trim(),
+        },
+      };
+
+      assertCloudConfig(cloud);
+      const db = await getCloudDb(cloud.firebase);
+      const snapshot = await getDoc(doc(db, "hobby_timer_sync", cloud.syncId));
+
+      if (!snapshot.exists()) {
+        setCloudStatus("No cloud data found for this Sync ID.");
+        return;
+      }
+
+      const remote = snapshot.data().data;
+      const normalized = prepareState(remote);
+      const confirmReplace = window.confirm(
+        "Download cloud data and replace local data on this device?"
+      );
+      if (!confirmReplace) {
+        setCloudStatus("Cloud download canceled.");
+        return;
+      }
+
+      setState(normalized);
+      setCloudStatus("Downloaded from cloud.");
+    } catch (error) {
+      setCloudStatus(`Cloud download failed: ${getMessage(error)}`);
+    }
+  }
+
   return (
     <main className="app">
       <section className="card hero">
         <h1>Hobby Time Tracker</h1>
-        <p>Pick an activity, start the timer, and track your total practice time.</p>
+        <p>Track your time, hit your goals, keep your streak, and sync across devices.</p>
       </section>
 
       <section className="card controls">
@@ -222,6 +438,47 @@ export default function App() {
           <button className="btn btn-danger" type="button" disabled={!activeSession} onClick={stopSession}>
             Stop
           </button>
+        </div>
+      </section>
+
+      <section className="card goals">
+        <h2>Goals & Streaks</h2>
+        <div className="goal-grid">
+          <div>
+            <label htmlFor="dailyGoal">Daily Goal (minutes)</label>
+            <input
+              id="dailyGoal"
+              type="number"
+              min="1"
+              value={dailyGoalInput}
+              onChange={(event) => setDailyGoalInput(event.target.value)}
+            />
+          </div>
+          <div>
+            <label htmlFor="weeklyGoal">Weekly Goal (minutes)</label>
+            <input
+              id="weeklyGoal"
+              type="number"
+              min="1"
+              value={weeklyGoalInput}
+              onChange={(event) => setWeeklyGoalInput(event.target.value)}
+            />
+          </div>
+          <button className="btn btn-secondary" type="button" onClick={saveGoals}>
+            Save Goals
+          </button>
+        </div>
+
+        <div className="progress-wrap">
+          <p>Today: {formatDuration(goals.todaySeconds)} / {formatDuration(goals.dailyGoalSeconds)}</p>
+          <div className="progress-track"><div className="progress-fill" style={{ width: `${goals.dailyPercent}%` }} /></div>
+          <p>This Week: {formatDuration(goals.weekSeconds)} / {formatDuration(goals.weeklyGoalSeconds)}</p>
+          <div className="progress-track"><div className="progress-fill" style={{ width: `${goals.weeklyPercent}%` }} /></div>
+        </div>
+
+        <div className="streak-row">
+          <strong>Current Streak: {streak.current} day(s)</strong>
+          <span>Best: {streak.best} day(s)</span>
         </div>
       </section>
 
@@ -313,6 +570,48 @@ export default function App() {
         </ul>
       </section>
 
+      <section className="card reminders">
+        <h2>Reminders</h2>
+        <p className="backup-text">
+          Daily reminder notifications (works when browser/PWA can run notifications).
+        </p>
+        <div className="row">
+          <input
+            type="time"
+            value={reminderTimeInput}
+            onChange={(event) => setReminderTimeInput(event.target.value)}
+          />
+          <button className="btn btn-secondary" type="button" onClick={saveReminderTime}>
+            Save Time
+          </button>
+          <button
+            className="btn btn-primary"
+            type="button"
+            onClick={() => toggleReminders(!state.settings.reminderEnabled)}
+          >
+            {state.settings.reminderEnabled ? "Disable Reminders" : "Enable Reminders"}
+          </button>
+        </div>
+      </section>
+
+      <section className="card cloud-sync">
+        <h2>Cloud Sync (Firebase Backend)</h2>
+        <p className="backup-text">Add your Firebase config and Sync ID, then sync between devices.</p>
+        <div className="cloud-grid">
+          <input placeholder="Sync ID (example: hussein-main)" value={syncIdInput} onChange={(e) => setSyncIdInput(e.target.value)} />
+          <input placeholder="Firebase API Key" value={firebaseConfigInput.apiKey} onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, apiKey: e.target.value }))} />
+          <input placeholder="Firebase Auth Domain" value={firebaseConfigInput.authDomain} onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, authDomain: e.target.value }))} />
+          <input placeholder="Firebase Project ID" value={firebaseConfigInput.projectId} onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, projectId: e.target.value }))} />
+          <input placeholder="Firebase App ID" value={firebaseConfigInput.appId} onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, appId: e.target.value }))} />
+        </div>
+        <div className="row">
+          <button className="btn btn-secondary" type="button" onClick={saveCloudConfig}>Save Cloud Config</button>
+          <button className="btn btn-primary" type="button" onClick={syncToCloud}>Sync Up</button>
+          <button className="btn btn-primary" type="button" onClick={syncFromCloud}>Sync Down</button>
+        </div>
+        <p className="backup-status" aria-live="polite">{cloudStatus}</p>
+      </section>
+
       <section className="card backup">
         <h2>Backup & Restore</h2>
         <p className="backup-text">
@@ -344,10 +643,10 @@ export default function App() {
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { hobbies: [], selectedHobby: "", totals: {}, sessions: [] };
+    if (!raw) return { hobbies: [], selectedHobby: "", totals: {}, sessions: [], settings: DEFAULT_SETTINGS };
     return JSON.parse(raw);
   } catch {
-    return { hobbies: [], selectedHobby: "", totals: {}, sessions: [] };
+    return { hobbies: [], selectedHobby: "", totals: {}, sessions: [], settings: DEFAULT_SETTINGS };
   }
 }
 
@@ -406,16 +705,42 @@ function prepareState(input) {
       ? source.selectedHobby
       : hobbyList[0];
 
+  const settings = mergeSettings(source.settings);
+
   return {
     hobbies: hobbyList,
     selectedHobby,
     totals,
     sessions,
+    settings,
   };
 }
 
 function normalizeBackupData(input) {
   return prepareState(input);
+}
+
+function mergeSettings(input) {
+  const source = input && typeof input === "object" ? input : {};
+  const cloudSource = source.cloud && typeof source.cloud === "object" ? source.cloud : {};
+  const firebaseSource = cloudSource.firebase && typeof cloudSource.firebase === "object" ? cloudSource.firebase : {};
+
+  return {
+    dailyGoalMinutes: clampInt(source.dailyGoalMinutes, 1, 1440, DEFAULT_SETTINGS.dailyGoalMinutes),
+    weeklyGoalMinutes: clampInt(source.weeklyGoalMinutes, 1, 10080, DEFAULT_SETTINGS.weeklyGoalMinutes),
+    reminderTime: isValidTime(source.reminderTime) ? source.reminderTime : DEFAULT_SETTINGS.reminderTime,
+    reminderEnabled: Boolean(source.reminderEnabled),
+    cloud: {
+      enabled: Boolean(cloudSource.enabled),
+      syncId: typeof cloudSource.syncId === "string" ? cloudSource.syncId : "",
+      firebase: {
+        apiKey: typeof firebaseSource.apiKey === "string" ? firebaseSource.apiKey : "",
+        authDomain: typeof firebaseSource.authDomain === "string" ? firebaseSource.authDomain : "",
+        projectId: typeof firebaseSource.projectId === "string" ? firebaseSource.projectId : "",
+        appId: typeof firebaseSource.appId === "string" ? firebaseSource.appId : "",
+      },
+    },
+  };
 }
 
 function formatDuration(totalSeconds) {
@@ -497,6 +822,117 @@ function buildChartBuckets(sessions, period, hobbyFilter) {
   return buckets;
 }
 
+function getTodaySeconds(sessions) {
+  const today = startOfDay(new Date());
+  const tomorrow = addDays(today, 1);
+
+  return sessions
+    .filter((session) => session.endedAt >= today.getTime() && session.endedAt < tomorrow.getTime())
+    .reduce((sum, session) => sum + session.duration, 0);
+}
+
+function getCurrentWeekSeconds(sessions) {
+  const weekStart = startOfWeek(new Date());
+  const weekEnd = addDays(weekStart, 7);
+
+  return sessions
+    .filter((session) => session.endedAt >= weekStart.getTime() && session.endedAt < weekEnd.getTime())
+    .reduce((sum, session) => sum + session.duration, 0);
+}
+
+function getStreak(sessions, thresholdSeconds) {
+  const byDay = new Map();
+
+  sessions.forEach((session) => {
+    const day = startOfDay(new Date(session.endedAt)).getTime();
+    byDay.set(day, (byDay.get(day) || 0) + session.duration);
+  });
+
+  const days = [...byDay.entries()]
+    .filter(([, seconds]) => seconds >= thresholdSeconds)
+    .map(([day]) => day)
+    .sort((a, b) => b - a);
+
+  const daySet = new Set(days);
+  const today = startOfDay(new Date()).getTime();
+
+  let current = 0;
+  let pointer = today;
+  while (daySet.has(pointer)) {
+    current += 1;
+    pointer = addDays(new Date(pointer), -1).getTime();
+  }
+
+  let best = 0;
+  days.forEach((day) => {
+    const prev = addDays(new Date(day), -1).getTime();
+    if (daySet.has(prev)) return;
+
+    let count = 1;
+    let next = addDays(new Date(day), 1).getTime();
+    while (daySet.has(next)) {
+      count += 1;
+      next = addDays(new Date(next), 1).getTime();
+    }
+    best = Math.max(best, count);
+  });
+
+  return { current, best };
+}
+
+function maybeTriggerReminder(reminderTime) {
+  if (!isValidTime(reminderTime)) return;
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+
+  const now = new Date();
+  const [hours, minutes] = reminderTime.split(":").map((value) => Number(value));
+  if (now.getHours() !== hours || now.getMinutes() !== minutes) return;
+
+  const key = `hobby-reminder-last-${now.toISOString().slice(0, 10)}`;
+  if (localStorage.getItem(key)) return;
+  localStorage.setItem(key, "sent");
+
+  if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+    navigator.serviceWorker.ready
+      .then((registration) => {
+        registration.showNotification("Hobby Time Tracker", {
+          body: "Time for your practice session.",
+          icon: `${window.location.origin}/HobbyTimer/icon-192.png`,
+          badge: `${window.location.origin}/HobbyTimer/icon-192.png`,
+          tag: "hobby-reminder",
+        });
+      })
+      .catch(() => {
+        new Notification("Hobby Time Tracker", { body: "Time for your practice session." });
+      });
+    return;
+  }
+
+  new Notification("Hobby Time Tracker", { body: "Time for your practice session." });
+}
+
+async function getCloudDb(firebaseConfig) {
+  const app = initializeApp(firebaseConfig, `hobby-tracker-${firebaseConfig.projectId}`);
+  const auth = getAuth(app);
+  await signInAnonymously(auth);
+  return getFirestore(app);
+}
+
+function assertCloudConfig(cloud) {
+  if (!cloud.syncId) {
+    throw new Error("Missing Sync ID");
+  }
+
+  const { apiKey, authDomain, projectId, appId } = cloud.firebase;
+  if (!apiKey || !authDomain || !projectId || !appId) {
+    throw new Error("Missing Firebase config");
+  }
+}
+
+function getMessage(error) {
+  return error && typeof error.message === "string" ? error.message : "Unknown error";
+}
+
 function startOfDay(date) {
   const value = new Date(date);
   value.setHours(0, 0, 0, 0);
@@ -538,4 +974,14 @@ function addYears(date, years) {
   const value = new Date(date);
   value.setFullYear(value.getFullYear() + years, 0, 1);
   return startOfDay(value);
+}
+
+function clampInt(value, min, max, fallback) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.floor(parsed)));
+}
+
+function isValidTime(value) {
+  return typeof value === "string" && /^\d{2}:\d{2}$/.test(value);
 }

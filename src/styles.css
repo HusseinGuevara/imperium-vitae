@@ -58,7 +58,10 @@ body {
 }
 
 .hero,
+.goals,
 .charts,
+.reminders,
+.cloud-sync,
 .backup {
   grid-column: 1 / -1;
 }
@@ -188,6 +191,45 @@ input:focus {
   box-shadow: 0 10px 18px rgba(209, 67, 67, 0.26);
 }
 
+.goal-grid {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-items: end;
+}
+
+.progress-wrap {
+  margin-top: 0.8rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.progress-wrap p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.progress-track {
+  width: 100%;
+  border-radius: 999px;
+  height: 12px;
+  background: rgba(16, 36, 63, 0.12);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(120deg, #1663d6, #19a7d8);
+}
+
+.streak-row {
+  margin-top: 0.7rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  color: #1a345a;
+}
+
 .period-btn {
   color: #244066;
   background: #dfe8fb;
@@ -254,6 +296,13 @@ input:focus {
   font-size: 0.73rem;
   font-weight: 700;
   color: #25395e;
+}
+
+.cloud-grid {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin-bottom: 0.7rem;
 }
 
 .backup-text {
