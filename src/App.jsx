@@ -2,9 +2,28 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { getAuth, signInAnonymously } from "firebase/auth";
 import { doc, getDoc, getFirestore, setDoc } from "firebase/firestore";
+import {
+  Badge,
+  Button,
+  Card,
+  Container,
+  Group,
+  NumberInput,
+  Paper,
+  Progress,
+  Select,
+  SegmentedControl,
+  SimpleGrid,
+  Stack,
+  Switch,
+  Text,
+  TextInput,
+  Title,
+} from "@mantine/core";
 
 const STORAGE_KEY = "hobby-time-tracker-v1";
 const MAX_SESSIONS = 25;
+const BASE_URL = import.meta.env.BASE_URL || "/";
 
 const DEFAULT_SETTINGS = {
   dailyGoalMinutes: 30,
@@ -124,6 +143,12 @@ export default function App() {
     return getStreak(state.sessions, state.settings.dailyGoalMinutes * 60);
   }, [state.sessions, state.settings.dailyGoalMinutes]);
 
+  const hobbyOptions = useMemo(() => state.hobbies.map((hobby) => ({ value: hobby, label: hobby })), [state.hobbies]);
+  const chartHobbyOptions = useMemo(
+    () => [{ value: "__all__", label: "All Hobbies" }, ...hobbyOptions],
+    [hobbyOptions]
+  );
+
   function addHobby() {
     const hobby = newHobby.trim();
     if (!hobby) return;
@@ -162,10 +187,10 @@ export default function App() {
         ...prev.totals,
         [hobby]: (prev.totals[hobby] || 0) + duration,
       },
-      sessions: [
-        { hobby, startedAt: activeSession.startedAt, endedAt, duration },
-        ...prev.sessions,
-      ].slice(0, MAX_SESSIONS),
+      sessions: [{ hobby, startedAt: activeSession.startedAt, endedAt, duration }, ...prev.sessions].slice(
+        0,
+        MAX_SESSIONS
+      ),
     }));
 
     setActiveSession(null);
@@ -182,7 +207,7 @@ export default function App() {
       data: state,
     };
 
-    const fileName = `hobby-tracker-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    const fileName = `progressxp-backup-${new Date().toISOString().slice(0, 10)}.json`;
     const blob = new Blob([JSON.stringify(backup, null, 2)], {
       type: "application/json",
     });
@@ -384,267 +409,226 @@ export default function App() {
   }
 
   return (
-    <main className="app">
-      <section className="card hero">
-        <img className="hero-logo" src={`${import.meta.env.BASE_URL}progressxp-logo.png`} alt="Progress XP logo" />
-        <h1>Progress XP</h1>
-        <p>Track your time, hit your goals, keep your streak, and sync across devices.</p>
-      </section>
+    <div className="app-bg">
+      <Container size="lg" py="xl">
+        <Stack gap="md">
+          <Paper radius="xl" p="lg" className="hero-panel">
+            <img className="hero-logo" src={`${BASE_URL}progressxp-logo.png`} alt="Progress XP logo" />
+            <Title order={1}>Progress XP</Title>
+            <Text c="dimmed">Track your time, hit your goals, keep your streak, and sync across devices.</Text>
+          </Paper>
 
-      <section className="card controls">
-        <label htmlFor="hobbySelect">Current Hobby</label>
-        <div className="row">
-          <select
-            id="hobbySelect"
-            aria-label="Select hobby"
-            disabled={Boolean(activeSession)}
-            value={state.selectedHobby}
-            onChange={(event) =>
-              setState((prev) => ({ ...prev, selectedHobby: event.target.value }))
-            }
-          >
-            {state.hobbies.map((hobby) => (
-              <option key={hobby} value={hobby}>
-                {hobby}
-              </option>
-            ))}
-          </select>
-
-          <input
-            type="text"
-            value={newHobby}
-            placeholder="Add a new hobby"
-            disabled={Boolean(activeSession)}
-            onChange={(event) => setNewHobby(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                addHobby();
-              }
-            }}
-          />
-
-          <button
-            className="btn btn-secondary"
-            type="button"
-            disabled={Boolean(activeSession)}
-            onClick={addHobby}
-          >
-            Add
-          </button>
-        </div>
-
-        <div className="timer-box">
-          <p className="label">Current Session</p>
-          <p className="timer">{formatDuration(sessionSeconds)}</p>
-        </div>
-
-        <div className="row actions">
-          <button className="btn btn-primary" type="button" disabled={Boolean(activeSession)} onClick={startSession}>
-            Start
-          </button>
-          <button className="btn btn-danger" type="button" disabled={!activeSession} onClick={stopSession}>
-            Stop
-          </button>
-        </div>
-      </section>
-
-      <section className="card goals">
-        <h2>Goals & Streaks</h2>
-        <div className="goal-grid">
-          <div>
-            <label htmlFor="dailyGoal">Daily Goal (minutes)</label>
-            <input
-              id="dailyGoal"
-              type="number"
-              min="1"
-              value={dailyGoalInput}
-              onChange={(event) => setDailyGoalInput(event.target.value)}
-            />
-          </div>
-          <div>
-            <label htmlFor="weeklyGoal">Weekly Goal (minutes)</label>
-            <input
-              id="weeklyGoal"
-              type="number"
-              min="1"
-              value={weeklyGoalInput}
-              onChange={(event) => setWeeklyGoalInput(event.target.value)}
-            />
-          </div>
-          <button className="btn btn-secondary" type="button" onClick={saveGoals}>
-            Save Goals
-          </button>
-        </div>
-
-        <div className="progress-wrap">
-          <p>Today: {formatDuration(goals.todaySeconds)} / {formatDuration(goals.dailyGoalSeconds)}</p>
-          <div className="progress-track"><div className="progress-fill" style={{ width: `${goals.dailyPercent}%` }} /></div>
-          <p>This Week: {formatDuration(goals.weekSeconds)} / {formatDuration(goals.weeklyGoalSeconds)}</p>
-          <div className="progress-track"><div className="progress-fill" style={{ width: `${goals.weeklyPercent}%` }} /></div>
-        </div>
-
-        <div className="streak-row">
-          <strong>Current Streak: {streak.current} day(s)</strong>
-          <span>Best: {streak.best} day(s)</span>
-        </div>
-      </section>
-
-      <section className="card totals">
-        <h2>Total Time by Hobby</h2>
-        <ul>
-          {totals.length === 0 ? (
-            <li className="empty">No tracked time yet.</li>
-          ) : (
-            totals.map(([hobby, seconds]) => (
-              <li key={hobby}>
-                <span>{hobby}</span>
-                <strong>{formatDuration(seconds)}</strong>
-              </li>
-            ))
-          )}
-        </ul>
-      </section>
-
-      <section className="card charts">
-        <h2>Practice Charts</h2>
-        <div className="chart-controls">
-          <div className="row period-row">
-            {[
-              ["daily", "Daily"],
-              ["weekly", "Weekly"],
-              ["monthly", "Monthly"],
-              ["yearly", "Yearly"],
-            ].map(([value, label]) => (
-              <button
-                key={value}
-                className={`btn period-btn ${chartPeriod === value ? "active" : ""}`}
-                data-period={value}
-                type="button"
-                onClick={() => setChartPeriod(value)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <select
-            aria-label="Filter chart by hobby"
-            value={chartHobby}
-            onChange={(event) => setChartHobby(event.target.value)}
-          >
-            <option value="__all__">All Hobbies</option>
-            {state.hobbies.map((hobby) => (
-              <option key={hobby} value={hobby}>
-                {hobby}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="chart-bars">
-          {chartBuckets.map((bucket) => {
-            const barHeight = Math.round((bucket.seconds / maxSeconds) * 160) + 4;
-            return (
-              <div className="chart-bar" key={bucket.key}>
-                <span className="value">{formatHours(bucket.seconds)}</span>
-                <div
-                  className="bar"
-                  style={{ height: `${barHeight}px` }}
-                  title={formatDuration(bucket.seconds)}
+          <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+            <Card radius="xl" shadow="sm" withBorder>
+              <Stack gap="sm">
+                <Title order={3}>Current Session</Title>
+                <Select
+                  label="Current Hobby"
+                  data={hobbyOptions}
+                  value={state.selectedHobby}
+                  disabled={Boolean(activeSession)}
+                  onChange={(value) => {
+                    if (!value) return;
+                    setState((prev) => ({ ...prev, selectedHobby: value }));
+                  }}
                 />
-                <span className="label">{bucket.label}</span>
+                <Group grow>
+                  <TextInput
+                    placeholder="Add a new hobby"
+                    value={newHobby}
+                    disabled={Boolean(activeSession)}
+                    onChange={(event) => setNewHobby(event.currentTarget.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        addHobby();
+                      }
+                    }}
+                  />
+                  <Button variant="light" onClick={addHobby} disabled={Boolean(activeSession)}>
+                    Add
+                  </Button>
+                </Group>
+                <Paper p="md" radius="md" className="timer-surface">
+                  <Text size="sm" c="dimmed">
+                    Live Timer
+                  </Text>
+                  <Title order={2} className="timer-text">
+                    {formatDuration(sessionSeconds)}
+                  </Title>
+                </Paper>
+                <Group grow>
+                  <Button onClick={startSession} disabled={Boolean(activeSession)}>
+                    Start
+                  </Button>
+                  <Button color="red" onClick={stopSession} disabled={!activeSession}>
+                    Stop
+                  </Button>
+                </Group>
+              </Stack>
+            </Card>
+
+            <Card radius="xl" shadow="sm" withBorder>
+              <Stack gap="sm">
+                <Title order={3}>Goals & Streaks</Title>
+                <Group grow>
+                  <NumberInput
+                    label="Daily Goal (minutes)"
+                    min={1}
+                    value={dailyGoalInput}
+                    onChange={(value) => setDailyGoalInput(String(value ?? ""))}
+                  />
+                  <NumberInput
+                    label="Weekly Goal (minutes)"
+                    min={1}
+                    value={weeklyGoalInput}
+                    onChange={(value) => setWeeklyGoalInput(String(value ?? ""))}
+                  />
+                </Group>
+                <Button variant="light" onClick={saveGoals}>
+                  Save Goals
+                </Button>
+                <Text size="sm">Today: {formatDuration(goals.todaySeconds)} / {formatDuration(goals.dailyGoalSeconds)}</Text>
+                <Progress value={goals.dailyPercent} radius="xl" />
+                <Text size="sm">This Week: {formatDuration(goals.weekSeconds)} / {formatDuration(goals.weeklyGoalSeconds)}</Text>
+                <Progress value={goals.weeklyPercent} radius="xl" color="cyan" />
+                <Group justify="space-between">
+                  <Badge size="lg" color="indigo" variant="light">
+                    Current streak: {streak.current} day(s)
+                  </Badge>
+                  <Badge size="lg" color="teal" variant="light">
+                    Best: {streak.best}
+                  </Badge>
+                </Group>
+              </Stack>
+            </Card>
+          </SimpleGrid>
+
+          <Card radius="xl" shadow="sm" withBorder>
+            <Stack gap="sm">
+              <Title order={3}>Practice Charts</Title>
+              <Group grow>
+                <SegmentedControl
+                  fullWidth
+                  value={chartPeriod}
+                  onChange={setChartPeriod}
+                  data={[
+                    { value: "daily", label: "Daily" },
+                    { value: "weekly", label: "Weekly" },
+                    { value: "monthly", label: "Monthly" },
+                    { value: "yearly", label: "Yearly" },
+                  ]}
+                />
+                <Select data={chartHobbyOptions} value={chartHobby} onChange={(value) => setChartHobby(value || "__all__")} />
+              </Group>
+              <div className="chart-wrap">
+                {chartBuckets.map((bucket) => {
+                  const barHeight = Math.round((bucket.seconds / maxSeconds) * 160) + 6;
+                  return (
+                    <div className="chart-col" key={bucket.key}>
+                      <Text size="xs" c="dimmed">
+                        {formatHours(bucket.seconds)}
+                      </Text>
+                      <div className="chart-bar" style={{ height: `${barHeight}px` }} title={formatDuration(bucket.seconds)} />
+                      <Text size="xs" fw={700}>
+                        {bucket.label}
+                      </Text>
+                    </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
-      </section>
+            </Stack>
+          </Card>
 
-      <section className="card sessions">
-        <h2>Recent Sessions</h2>
-        <ul>
-          {state.sessions.length === 0 ? (
-            <li className="empty">No sessions yet.</li>
-          ) : (
-            state.sessions.map((session, index) => (
-              <li key={`${session.endedAt}-${index}`}>
-                <span>
-                  {session.hobby} · {new Date(session.endedAt).toLocaleString()}
-                </span>
-                <strong>{formatDuration(session.duration)}</strong>
-              </li>
-            ))
-          )}
-        </ul>
-      </section>
+          <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
+            <Card radius="xl" shadow="sm" withBorder>
+              <Stack gap="sm">
+                <Title order={3}>Totals by Hobby</Title>
+                {totals.length === 0 ? (
+                  <Text c="dimmed">No tracked time yet.</Text>
+                ) : (
+                  totals.map(([hobby, seconds]) => (
+                    <Paper key={hobby} withBorder p="sm" radius="md">
+                      <Group justify="space-between">
+                        <Text>{hobby}</Text>
+                        <Text fw={700}>{formatDuration(seconds)}</Text>
+                      </Group>
+                    </Paper>
+                  ))
+                )}
+              </Stack>
+            </Card>
 
-      <section className="card reminders">
-        <h2>Reminders</h2>
-        <p className="backup-text">
-          Daily reminder notifications (works when browser/PWA can run notifications).
-        </p>
-        <div className="row">
-          <input
-            type="time"
-            value={reminderTimeInput}
-            onChange={(event) => setReminderTimeInput(event.target.value)}
-          />
-          <button className="btn btn-secondary" type="button" onClick={saveReminderTime}>
-            Save Time
-          </button>
-          <button
-            className="btn btn-primary"
-            type="button"
-            onClick={() => toggleReminders(!state.settings.reminderEnabled)}
-          >
-            {state.settings.reminderEnabled ? "Disable Reminders" : "Enable Reminders"}
-          </button>
-        </div>
-      </section>
+            <Card radius="xl" shadow="sm" withBorder>
+              <Stack gap="sm">
+                <Title order={3}>Recent Sessions</Title>
+                {state.sessions.length === 0 ? (
+                  <Text c="dimmed">No sessions yet.</Text>
+                ) : (
+                  state.sessions.map((session, index) => (
+                    <Paper key={`${session.endedAt}-${index}`} withBorder p="sm" radius="md">
+                      <Group justify="space-between" align="flex-start">
+                        <Text size="sm">{session.hobby} · {new Date(session.endedAt).toLocaleString()}</Text>
+                        <Text fw={700} size="sm">{formatDuration(session.duration)}</Text>
+                      </Group>
+                    </Paper>
+                  ))
+                )}
+              </Stack>
+            </Card>
+          </SimpleGrid>
 
-      <section className="card cloud-sync">
-        <h2>Cloud Sync (Firebase Backend)</h2>
-        <p className="backup-text">Add your Firebase config and Sync ID, then sync between devices.</p>
-        <div className="cloud-grid">
-          <input placeholder="Sync ID (example: hussein-main)" value={syncIdInput} onChange={(e) => setSyncIdInput(e.target.value)} />
-          <input placeholder="Firebase API Key" value={firebaseConfigInput.apiKey} onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, apiKey: e.target.value }))} />
-          <input placeholder="Firebase Auth Domain" value={firebaseConfigInput.authDomain} onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, authDomain: e.target.value }))} />
-          <input placeholder="Firebase Project ID" value={firebaseConfigInput.projectId} onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, projectId: e.target.value }))} />
-          <input placeholder="Firebase App ID" value={firebaseConfigInput.appId} onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, appId: e.target.value }))} />
-        </div>
-        <div className="row">
-          <button className="btn btn-secondary" type="button" onClick={saveCloudConfig}>Save Cloud Config</button>
-          <button className="btn btn-primary" type="button" onClick={syncToCloud}>Sync Up</button>
-          <button className="btn btn-primary" type="button" onClick={syncFromCloud}>Sync Down</button>
-        </div>
-        <p className="backup-status" aria-live="polite">{cloudStatus}</p>
-      </section>
+          <Card radius="xl" shadow="sm" withBorder>
+            <Stack gap="sm">
+              <Title order={3}>Reminders</Title>
+              <Text c="dimmed" size="sm">Enable a daily prompt to keep your streak going.</Text>
+              <Group grow>
+                <TextInput type="time" value={reminderTimeInput} onChange={(event) => setReminderTimeInput(event.currentTarget.value)} />
+                <Button variant="light" onClick={saveReminderTime}>Save Time</Button>
+              </Group>
+              <Switch
+                checked={state.settings.reminderEnabled}
+                onChange={(event) => toggleReminders(event.currentTarget.checked)}
+                label={state.settings.reminderEnabled ? "Reminders enabled" : "Reminders disabled"}
+              />
+            </Stack>
+          </Card>
 
-      <section className="card backup">
-        <h2>Backup & Restore</h2>
-        <p className="backup-text">
-          Export your data to a backup file, then save it in iCloud Drive or Files.
-        </p>
-        <div className="row">
-          <button className="btn btn-secondary" type="button" onClick={exportBackup}>
-            Export Backup
-          </button>
-          <button className="btn btn-primary" type="button" onClick={handleImportClick}>
-            Import Backup
-          </button>
-          <input
-            ref={importBackupRef}
-            type="file"
-            accept="application/json"
-            hidden
-            onChange={importBackup}
-          />
-        </div>
-        <p className="backup-status" aria-live="polite">
-          {backupStatus}
-        </p>
-      </section>
-    </main>
+          <Card radius="xl" shadow="sm" withBorder>
+            <Stack gap="sm">
+              <Title order={3}>Cloud Sync (Firebase)</Title>
+              <Text c="dimmed" size="sm">Set your Firebase config and Sync ID once, then sync between devices.</Text>
+              <SimpleGrid cols={{ base: 1, md: 2 }}>
+                <TextInput label="Sync ID" placeholder="hussein-main" value={syncIdInput} onChange={(e) => setSyncIdInput(e.currentTarget.value)} />
+                <TextInput label="API Key" value={firebaseConfigInput.apiKey} onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, apiKey: e.currentTarget.value }))} />
+                <TextInput label="Auth Domain" value={firebaseConfigInput.authDomain} onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, authDomain: e.currentTarget.value }))} />
+                <TextInput label="Project ID" value={firebaseConfigInput.projectId} onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, projectId: e.currentTarget.value }))} />
+                <TextInput label="App ID" value={firebaseConfigInput.appId} onChange={(e) => setFirebaseConfigInput((prev) => ({ ...prev, appId: e.currentTarget.value }))} />
+              </SimpleGrid>
+              <Group>
+                <Button variant="light" onClick={saveCloudConfig}>Save Config</Button>
+                <Button onClick={syncToCloud}>Sync Up</Button>
+                <Button color="cyan" onClick={syncFromCloud}>Sync Down</Button>
+              </Group>
+              {cloudStatus ? <Text size="sm" c="blue">{cloudStatus}</Text> : null}
+            </Stack>
+          </Card>
+
+          <Card radius="xl" shadow="sm" withBorder>
+            <Stack gap="sm">
+              <Title order={3}>Backup & Restore</Title>
+              <Text c="dimmed" size="sm">Manual JSON backup for Files/iCloud Drive.</Text>
+              <Group>
+                <Button variant="light" onClick={exportBackup}>Export Backup</Button>
+                <Button onClick={handleImportClick}>Import Backup</Button>
+                <input ref={importBackupRef} type="file" accept="application/json" hidden onChange={importBackup} />
+              </Group>
+              {backupStatus ? <Text size="sm" c="blue">{backupStatus}</Text> : null}
+            </Stack>
+          </Card>
+        </Stack>
+      </Container>
+    </div>
   );
 }
 
@@ -896,18 +880,20 @@ function maybeTriggerReminder(reminderTime) {
   const [hours, minutes] = reminderTime.split(":").map((value) => Number(value));
   if (now.getHours() !== hours || now.getMinutes() !== minutes) return;
 
-  const key = `hobby-reminder-last-${now.toISOString().slice(0, 10)}`;
+  const key = `progressxp-reminder-last-${now.toISOString().slice(0, 10)}`;
   if (localStorage.getItem(key)) return;
   localStorage.setItem(key, "sent");
+
+  const iconUrl = `${window.location.origin}${BASE_URL}icon-192.png`;
 
   if (navigator.serviceWorker && navigator.serviceWorker.ready) {
     navigator.serviceWorker.ready
       .then((registration) => {
         registration.showNotification("Progress XP", {
           body: "Time for your practice session.",
-          icon: `${window.location.origin}/HobbyTimer/icon-192.png`,
-          badge: `${window.location.origin}/HobbyTimer/icon-192.png`,
-          tag: "hobby-reminder",
+          icon: iconUrl,
+          badge: iconUrl,
+          tag: "progressxp-reminder",
         });
       })
       .catch(() => {
@@ -924,6 +910,7 @@ async function getCloudDb(firebaseConfig) {
   const app = getApps().some((item) => item.name === appName)
     ? getApp(appName)
     : initializeApp(firebaseConfig, appName);
+
   const auth = getAuth(app);
   const credential = await signInAnonymously(auth);
   return { db: getFirestore(app), uid: credential.user.uid };
