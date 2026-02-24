@@ -414,14 +414,20 @@ export default function App() {
         <Stack gap="md">
           <Paper radius="xl" p="lg" className="hero-panel">
             <img className="hero-logo" src={`${BASE_URL}progressxp-logo.png`} alt="Progress XP logo" />
+            <Badge className="hero-badge" size="lg" radius="xl" variant="white">
+              Build momentum daily
+            </Badge>
             <Title order={1}>Progress XP</Title>
             <Text c="dimmed">Track your time, hit your goals, keep your streak, and sync across devices.</Text>
           </Paper>
 
           <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-            <Card radius="xl" shadow="sm" withBorder>
+            <Card radius="xl" shadow="sm" withBorder className="glass-card session-card">
               <Stack gap="sm">
                 <Title order={3}>Current Session</Title>
+                <Text size="sm" c="dimmed" className="section-subtitle">
+                  Pick a focus and press start when you begin.
+                </Text>
                 <Select
                   label="Current Hobby"
                   data={hobbyOptions}
@@ -468,9 +474,12 @@ export default function App() {
               </Stack>
             </Card>
 
-            <Card radius="xl" shadow="sm" withBorder>
+            <Card radius="xl" shadow="sm" withBorder className="glass-card goals-card">
               <Stack gap="sm">
                 <Title order={3}>Goals & Streaks</Title>
+                <Text size="sm" c="dimmed" className="section-subtitle">
+                  Keep your routine consistent and grow your streak.
+                </Text>
                 <Group grow>
                   <NumberInput
                     label="Daily Goal (minutes)"
@@ -504,9 +513,12 @@ export default function App() {
             </Card>
           </SimpleGrid>
 
-          <Card radius="xl" shadow="sm" withBorder>
+          <Card radius="xl" shadow="sm" withBorder className="glass-card charts-card">
             <Stack gap="sm">
               <Title order={3}>Practice Charts</Title>
+              <Text size="sm" c="dimmed" className="section-subtitle">
+                Review daily, weekly, monthly, and yearly consistency.
+              </Text>
               <Group grow>
                 <SegmentedControl
                   fullWidth
@@ -541,14 +553,14 @@ export default function App() {
           </Card>
 
           <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-            <Card radius="xl" shadow="sm" withBorder>
+            <Card radius="xl" shadow="sm" withBorder className="glass-card totals-card">
               <Stack gap="sm">
                 <Title order={3}>Totals by Hobby</Title>
                 {totals.length === 0 ? (
                   <Text c="dimmed">No tracked time yet.</Text>
                 ) : (
                   totals.map(([hobby, seconds]) => (
-                    <Paper key={hobby} withBorder p="sm" radius="md">
+                    <Paper key={hobby} withBorder p="sm" radius="md" className="row-paper">
                       <Group justify="space-between">
                         <Text>{hobby}</Text>
                         <Text fw={700}>{formatDuration(seconds)}</Text>
@@ -559,14 +571,14 @@ export default function App() {
               </Stack>
             </Card>
 
-            <Card radius="xl" shadow="sm" withBorder>
+            <Card radius="xl" shadow="sm" withBorder className="glass-card sessions-card">
               <Stack gap="sm">
                 <Title order={3}>Recent Sessions</Title>
                 {state.sessions.length === 0 ? (
                   <Text c="dimmed">No sessions yet.</Text>
                 ) : (
                   state.sessions.map((session, index) => (
-                    <Paper key={`${session.endedAt}-${index}`} withBorder p="sm" radius="md">
+                    <Paper key={`${session.endedAt}-${index}`} withBorder p="sm" radius="md" className="row-paper">
                       <Group justify="space-between" align="flex-start">
                         <Text size="sm">{session.hobby} · {new Date(session.endedAt).toLocaleString()}</Text>
                         <Text fw={700} size="sm">{formatDuration(session.duration)}</Text>
@@ -578,7 +590,7 @@ export default function App() {
             </Card>
           </SimpleGrid>
 
-          <Card radius="xl" shadow="sm" withBorder>
+          <Card radius="xl" shadow="sm" withBorder className="glass-card reminders-card">
             <Stack gap="sm">
               <Title order={3}>Reminders</Title>
               <Text c="dimmed" size="sm">Enable a daily prompt to keep your streak going.</Text>
@@ -594,7 +606,7 @@ export default function App() {
             </Stack>
           </Card>
 
-          <Card radius="xl" shadow="sm" withBorder>
+          <Card radius="xl" shadow="sm" withBorder className="glass-card cloud-card">
             <Stack gap="sm">
               <Title order={3}>Cloud Sync (Firebase)</Title>
               <Text c="dimmed" size="sm">Set your Firebase config and Sync ID once, then sync between devices.</Text>
@@ -610,11 +622,11 @@ export default function App() {
                 <Button onClick={syncToCloud}>Sync Up</Button>
                 <Button color="cyan" onClick={syncFromCloud}>Sync Down</Button>
               </Group>
-              {cloudStatus ? <Text size="sm" c="blue">{cloudStatus}</Text> : null}
+              {cloudStatus ? <Text size="sm" c="blue" className="status-text">{cloudStatus}</Text> : null}
             </Stack>
           </Card>
 
-          <Card radius="xl" shadow="sm" withBorder>
+          <Card radius="xl" shadow="sm" withBorder className="glass-card backup-card">
             <Stack gap="sm">
               <Title order={3}>Backup & Restore</Title>
               <Text c="dimmed" size="sm">Manual JSON backup for Files/iCloud Drive.</Text>
@@ -623,7 +635,7 @@ export default function App() {
                 <Button onClick={handleImportClick}>Import Backup</Button>
                 <input ref={importBackupRef} type="file" accept="application/json" hidden onChange={importBackup} />
               </Group>
-              {backupStatus ? <Text size="sm" c="blue">{backupStatus}</Text> : null}
+              {backupStatus ? <Text size="sm" c="blue" className="status-text">{backupStatus}</Text> : null}
             </Stack>
           </Card>
         </Stack>
