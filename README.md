@@ -27,6 +27,8 @@ For Firebase auth to work on the live site, set these repository secrets in GitH
 - `VITE_FIREBASE_PROJECT_ID`
 - `VITE_FIREBASE_APP_ID`
 
+Important: the secret values must be your real Firebase values (for example `AIza...`, `your-project.firebaseapp.com`), not the variable names.
+
 Live URL:
 
 `https://husseinguevara.github.io/HobbyTimer/`

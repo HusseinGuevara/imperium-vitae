@@ -1195,27 +1195,40 @@ function getResolvedFirebaseConfig(firebaseInput) {
   const source = firebaseInput && typeof firebaseInput === "object" ? firebaseInput : {};
   const fallback = DEFAULT_FIREBASE_CONFIG;
   return {
-    apiKey: typeof source.apiKey === "string" && source.apiKey.trim() ? source.apiKey.trim() : fallback.apiKey,
-    authDomain:
-      typeof source.authDomain === "string" && source.authDomain.trim()
-        ? source.authDomain.trim()
-        : fallback.authDomain,
-    projectId:
-      typeof source.projectId === "string" && source.projectId.trim()
-        ? source.projectId.trim()
-        : fallback.projectId,
-    appId: typeof source.appId === "string" && source.appId.trim() ? source.appId.trim() : fallback.appId,
+    apiKey: pickFirebaseValue(source.apiKey, fallback.apiKey),
+    authDomain: pickFirebaseValue(source.authDomain, fallback.authDomain),
+    projectId: pickFirebaseValue(source.projectId, fallback.projectId),
+    appId: pickFirebaseValue(source.appId, fallback.appId),
   };
 }
 
 function isCompleteFirebaseConfig(firebaseConfig) {
   return Boolean(
     firebaseConfig &&
-      firebaseConfig.apiKey &&
-      firebaseConfig.authDomain &&
-      firebaseConfig.projectId &&
-      firebaseConfig.appId
+      isUsableFirebaseValue(firebaseConfig.apiKey) &&
+      isUsableFirebaseValue(firebaseConfig.authDomain) &&
+      isUsableFirebaseValue(firebaseConfig.projectId) &&
+      isUsableFirebaseValue(firebaseConfig.appId)
   );
+}
+
+function pickFirebaseValue(primaryValue, fallbackValue) {
+  const primary = normalizeFirebaseValue(primaryValue);
+  if (isUsableFirebaseValue(primary)) return primary;
+
+  const fallback = normalizeFirebaseValue(fallbackValue);
+  if (isUsableFirebaseValue(fallback)) return fallback;
+
+  return primary || fallback;
+}
+
+function normalizeFirebaseValue(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function isUsableFirebaseValue(value) {
+  if (!value || typeof value !== "string") return false;
+  return !/^VITE_FIREBASE_/i.test(value.trim());
 }
 
 function getFirebaseApp(firebaseConfig) {
