@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#197278" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Hobby Timer" />
+    <title>Hobby Time Tracker</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="./icon-180.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="card hero">
+        <h1>Hobby Time Tracker</h1>
+        <p>Pick an activity, start the timer, and track your total practice time.</p>
+      </section>
+
+      <section class="card controls">
+        <label for="hobbySelect">Current Hobby</label>
+        <div class="row">
+          <select id="hobbySelect" aria-label="Select hobby"></select>
+          <input id="newHobbyInput" type="text" placeholder="Add a new hobby" />
+          <button id="addHobbyBtn" class="btn btn-secondary" type="button">Add</button>
+        </div>
+
+        <div class="timer-box">
+          <p class="label">Current Session</p>
+          <p id="sessionTimer" class="timer">00:00:00</p>
+        </div>
+
+        <div class="row actions">
+          <button id="startBtn" class="btn btn-primary" type="button">Start</button>
+          <button id="stopBtn" class="btn btn-danger" type="button" disabled>Stop</button>
+        </div>
+      </section>
+
+      <section class="card totals">
+        <h2>Total Time by Hobby</h2>
+        <ul id="totalsList"></ul>
+      </section>
+
+      <section class="card charts">
+        <h2>Practice Charts</h2>
+        <div class="chart-controls">
+          <div class="row period-row">
+            <button class="btn period-btn active" data-period="daily" type="button">Daily</button>
+            <button class="btn period-btn" data-period="weekly" type="button">Weekly</button>
+            <button class="btn period-btn" data-period="monthly" type="button">Monthly</button>
+            <button class="btn period-btn" data-period="yearly" type="button">Yearly</button>
+          </div>
+          <select id="chartHobbyFilter" aria-label="Filter chart by hobby"></select>
+        </div>
+        <div id="chartBars" class="chart-bars"></div>
+      </section>
+
+      <section class="card sessions">
+        <h2>Recent Sessions</h2>
+        <ul id="sessionsList"></ul>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("./sw.js").catch(() => {});
+        });
+      }
+    </script>
+  </body>
+</html>

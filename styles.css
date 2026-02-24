@@ -1,0 +1,253 @@
+:root {
+  --bg1: #fbf4e9;
+  --bg2: #d7ebdc;
+  --card: rgba(255, 255, 255, 0.82);
+  --text: #1f2933;
+  --muted: #5f6c78;
+  --accent: #197278;
+  --accent-2: #f4a261;
+  --danger: #c44536;
+  --border: rgba(31, 41, 51, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Space Grotesk", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 15% 15%, rgba(244, 162, 97, 0.3), transparent 40%),
+    radial-gradient(circle at 80% 20%, rgba(25, 114, 120, 0.25), transparent 35%),
+    linear-gradient(140deg, var(--bg1), var(--bg2));
+}
+
+.app {
+  width: min(920px, 92vw);
+  margin: 2.5rem auto;
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 1rem;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 24px rgba(31, 41, 51, 0.08);
+  animation: rise 0.42s ease both;
+}
+
+.hero {
+  grid-column: 1 / -1;
+}
+
+.charts {
+  grid-column: 1 / -1;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: 1.7rem;
+}
+
+h2 {
+  margin-bottom: 0.8rem;
+  font-size: 1.1rem;
+}
+
+.hero p {
+  margin-top: 0.5rem;
+  color: var(--muted);
+}
+
+.controls label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+select,
+input {
+  flex: 1 1 170px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  padding: 0.65rem 0.7rem;
+  font: inherit;
+  background: #fff;
+}
+
+.timer-box {
+  margin: 1rem 0;
+  padding: 0.8rem;
+  border-radius: 12px;
+  background: rgba(25, 114, 120, 0.08);
+}
+
+.timer-box .label {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.timer {
+  margin-top: 0.2rem;
+  font-size: 2rem;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.actions {
+  margin-top: 0.4rem;
+}
+
+.btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.65rem 1rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 120ms ease, opacity 120ms ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-secondary {
+  background: #2f4858;
+  color: #fff;
+}
+
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.period-btn {
+  background: #d7dee3;
+  color: #2f4858;
+}
+
+.period-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.chart-controls {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.period-row {
+  margin-bottom: 0.2rem;
+}
+
+.chart-bars {
+  margin-top: 1rem;
+  min-height: 240px;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: rgba(25, 114, 120, 0.08);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(56px, 1fr));
+  gap: 0.5rem;
+  align-items: end;
+}
+
+.chart-bar {
+  display: grid;
+  justify-items: center;
+  gap: 0.35rem;
+}
+
+.chart-bar .bar {
+  width: 100%;
+  max-width: 56px;
+  min-height: 3px;
+  border-radius: 8px 8px 4px 4px;
+  background: linear-gradient(180deg, var(--accent-2), var(--accent));
+}
+
+.chart-bar .value {
+  font-size: 0.76rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-bar .label {
+  font-size: 0.74rem;
+  color: var(--text);
+  font-weight: 700;
+}
+
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+li {
+  padding: 0.7rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.empty {
+  color: var(--muted);
+  justify-content: flex-start;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .app {
+    width: 94vw;
+    margin: 1rem auto;
+  }
+
+  .timer {
+    font-size: 1.6rem;
+  }
+}
