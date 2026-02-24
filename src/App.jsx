@@ -1187,7 +1187,7 @@ function assertCloudConfig(cloud) {
 
 function assertFirebaseConfig(firebaseConfig) {
   if (!isCompleteFirebaseConfig(firebaseConfig)) {
-    throw new Error("Missing Firebase config");
+    throw new Error("Missing Firebase config. Add VITE_FIREBASE_* values to your deployment.");
   }
 }
 
