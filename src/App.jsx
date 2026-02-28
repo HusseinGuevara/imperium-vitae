@@ -907,7 +907,7 @@ export default function App() {
                   return (
                     <div className="chart-col" key={bucket.key}>
                       <Text size="xs" c="dimmed">
-                        {formatHours(bucket.seconds)}
+                        {formatChartTime(bucket.seconds)}
                       </Text>
                       <div className="chart-bar" style={{ height: `${barHeight}px` }} title={formatDuration(bucket.seconds)} />
                       <Text size="xs" fw={700}>
@@ -1087,11 +1087,15 @@ function formatDuration(totalSeconds) {
   return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-function formatHours(totalSeconds) {
-  const hours = totalSeconds / 3600;
-  if (hours >= 10) return `${hours.toFixed(0)}h`;
-  if (hours >= 1) return `${hours.toFixed(1)}h`;
-  return `${hours.toFixed(2)}h`;
+function formatChartTime(totalSeconds) {
+  const totalMinutes = Math.max(0, Math.round(totalSeconds / 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h`;
+  if (minutes > 0) return `${minutes}m`;
+  return "0m";
 }
 
 function buildChartBuckets(sessions, period, hobbyFilter) {
