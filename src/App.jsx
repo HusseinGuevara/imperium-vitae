@@ -15,26 +15,15 @@ import {
   signOut,
 } from "firebase/auth";
 import { doc, getDoc, getFirestore, setDoc } from "firebase/firestore";
-import {
-  Badge,
-  Burger,
-  Button,
-  Card,
-  Container,
-  Group,
-  Menu,
-  NumberInput,
-  Paper,
-  Progress,
-  Select,
-  SegmentedControl,
-  SimpleGrid,
-  Stack,
-  Switch,
-  Text,
-  TextInput,
-  Title,
-} from "@mantine/core";
+import { Container, SimpleGrid, Stack } from "@mantine/core";
+import AuthScreen from "./components/AuthScreen";
+import ChartsCard from "./components/ChartsCard";
+import GoalsCard from "./components/GoalsCard";
+import RemindersCard from "./components/RemindersCard";
+import SessionCard from "./components/SessionCard";
+import SessionsCard from "./components/SessionsCard";
+import TopNav from "./components/TopNav";
+import TotalsCard from "./components/TotalsCard";
 
 const STORAGE_KEY = "hobby-time-tracker-v1";
 const AUTH_ACTIVITY_KEY = "progressxp-auth-last-active-at";
@@ -647,333 +636,99 @@ export default function App() {
 
   if (!authUser) {
     return (
-      <div className="app-bg">
-        <Container size="sm" py="xl">
-          <Stack gap="md">
-            <div className="login-logo-wrap">
-              <img className="hero-logo" src={`${BASE_URL}progressxp-logo.png`} alt="Progress XP logo" />
-            </div>
-
-            <Card radius="xl" shadow="sm" withBorder className="glass-card cloud-card">
-              <Stack gap="sm">
-                <Title order={3}>Create Account</Title>
-                <Text c="dimmed" size="sm">
-                  Sign up once to unlock Progress XP and stay logged in across sessions.
-                </Text>
-                <SimpleGrid cols={{ base: 1, md: 2 }}>
-                  <TextInput
-                    label="Email"
-                    placeholder="you@example.com"
-                    value={authEmailInput}
-                    onChange={(e) => setAuthEmailInput(e.currentTarget.value)}
-                  />
-                  <TextInput
-                    type="password"
-                    label="Password"
-                    placeholder="At least 6 characters"
-                    value={authPasswordInput}
-                    onChange={(e) => setAuthPasswordInput(e.currentTarget.value)}
-                  />
-                </SimpleGrid>
-                <Group className="social-auth-row">
-                  <Button
-                    className="auth-provider-btn google-btn"
-                    variant="light"
-                    leftSection={<GoogleLogoIcon />}
-                    onClick={() => signInWithProvider("google")}
-                  >
-                    Continue with Google
-                  </Button>
-                  <Button
-                    className="auth-provider-btn apple-btn"
-                    variant="light"
-                    leftSection={<AppleLogoIcon />}
-                    onClick={() => signInWithProvider("apple")}
-                  >
-                    Continue with Apple
-                  </Button>
-                </Group>
-                <Group>
-                  <Button variant="light" onClick={signUpWithEmail}>Sign Up</Button>
-                  <Button onClick={logInWithEmail}>Log In</Button>
-                </Group>
-                {!hasFirebaseConfigured ? (
-                  <Text size="sm" c="dimmed">
-                    Login is not available yet. Firebase sign-in providers must be enabled.
-                  </Text>
-                ) : null}
-                {hasFirebaseConfigured && !authChecked ? (
-                  <Text size="sm" c="dimmed">Checking saved session...</Text>
-                ) : null}
-                {authStatus ? <Text size="sm" c="blue" className="status-text">{authStatus}</Text> : null}
-              </Stack>
-            </Card>
-          </Stack>
-        </Container>
-      </div>
+      <AuthScreen
+        baseUrl={BASE_URL}
+        authEmailInput={authEmailInput}
+        authPasswordInput={authPasswordInput}
+        authStatus={authStatus}
+        authChecked={authChecked}
+        hasFirebaseConfigured={hasFirebaseConfigured}
+        onEmailChange={setAuthEmailInput}
+        onPasswordChange={setAuthPasswordInput}
+        onGoogleSignIn={() => signInWithProvider("google")}
+        onAppleSignIn={() => signInWithProvider("apple")}
+        onSignUp={signUpWithEmail}
+        onLogIn={logInWithEmail}
+      />
     );
   }
 
   return (
     <div className="app-bg">
-      <Paper p="sm" className="top-nav" radius={0}>
-        <div className="top-nav-inner">
-          <Group justify="space-between" align="center" wrap="nowrap">
-            <img className="nav-logo" src={`${BASE_URL}progressxp-logo.png`} alt="Progress XP logo" />
-            <Menu
-              opened={accountMenuOpen}
-              onChange={setAccountMenuOpen}
-              position="bottom-end"
-              shadow="md"
-              width={250}
-              transitionProps={{ transition: "pop-top-right", duration: 180 }}
-            >
-              <Menu.Target>
-                <div>
-                  <Burger
-                    opened={accountMenuOpen}
-                    onClick={() => setAccountMenuOpen((open) => !open)}
-                    aria-label="Open account menu"
-                    className="account-burger"
-                    color="#ffffff"
-                  />
-                </div>
-              </Menu.Target>
-              <Menu.Dropdown className="account-dropdown">
-                <Menu.Label>{accountName}</Menu.Label>
-                <Menu.Item disabled>{accountEmail}</Menu.Item>
-                <Menu.Divider />
-                <Menu.Item
-                  color="red"
-                  onClick={() => {
-                    setAccountMenuOpen(false);
-                    logOutAccount();
-                  }}
-                >
-                  Log Out
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
-          </Group>
-        </div>
-      </Paper>
+      <TopNav
+        baseUrl={BASE_URL}
+        accountMenuOpen={accountMenuOpen}
+        setAccountMenuOpen={setAccountMenuOpen}
+        accountName={accountName}
+        accountEmail={accountEmail}
+        onLogOut={logOutAccount}
+      />
 
       <Container size="lg" py="xl">
         <Stack gap="md">
-
           <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-            <Card radius="xl" shadow="sm" withBorder className="glass-card session-card">
-              <Stack gap="sm">
-                <Title order={3}>Current Session</Title>
-                <Text size="sm" c="dimmed" className="section-subtitle">
-                  Pick a focus and press start when you begin.
-                </Text>
-                <Select
-                  label="Current Hobby"
-                  data={hobbyOptions}
-                  value={state.selectedHobby}
-                  disabled={Boolean(activeSession)}
-                  onChange={(value) => {
-                    if (!value) return;
-                    setState((prev) => ({ ...prev, selectedHobby: value }));
-                  }}
-                />
-                <Group>
-                  <TextInput
-                    placeholder="Add a new hobby"
-                    value={newHobby}
-                    style={{ flex: 1 }}
-                    disabled={Boolean(activeSession)}
-                    onChange={(event) => setNewHobby(event.currentTarget.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        addHobby();
-                      }
-                    }}
-                  />
-                </Group>
-                <Group>
-                  <Button variant="light" onClick={addHobby} disabled={Boolean(activeSession)}>
-                    Add
-                  </Button>
-                  <Button
-                    color="red"
-                    variant="light"
-                    onClick={deleteSelectedHobby}
-                    disabled={Boolean(activeSession) || state.hobbies.length <= 1}
-                  >
-                    Delete Hobby
-                  </Button>
-                </Group>
-                <Paper p="md" radius="md" className="timer-surface">
-                  <Text size="sm" c="dimmed">
-                    Live Timer
-                  </Text>
-                  <Title order={2} className="timer-text">
-                    {formatDuration(sessionSeconds)}
-                  </Title>
-                  {activeSession?.pausedAt ? (
-                    <Text size="sm" c="orange" fw={700}>
-                      Paused
-                    </Text>
-                  ) : null}
-                </Paper>
-                <Group grow>
-                  <Button onClick={startSession} disabled={Boolean(activeSession)}>
-                    Start
-                  </Button>
-                  <Button
-                    color={activeSession?.pausedAt ? "teal" : "yellow"}
-                    variant="light"
-                    onClick={activeSession?.pausedAt ? resumeSession : pauseSession}
-                    disabled={!activeSession}
-                  >
-                    {activeSession?.pausedAt ? "Resume" : "Pause"}
-                  </Button>
-                  <Button color="red" onClick={stopSession} disabled={!activeSession}>
-                    Stop
-                  </Button>
-                </Group>
-              </Stack>
-            </Card>
+            <SessionCard
+              hobbyOptions={hobbyOptions}
+              selectedHobby={state.selectedHobby}
+              activeSession={activeSession}
+              newHobby={newHobby}
+              sessionSeconds={sessionSeconds}
+              hobbyCount={state.hobbies.length}
+              onSelectHobby={(value) => {
+                if (!value) return;
+                setState((prev) => ({ ...prev, selectedHobby: value }));
+              }}
+              onNewHobbyChange={setNewHobby}
+              onNewHobbyKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  addHobby();
+                }
+              }}
+              onAddHobby={addHobby}
+              onDeleteHobby={deleteSelectedHobby}
+              onStart={startSession}
+              onPauseResume={activeSession?.pausedAt ? resumeSession : pauseSession}
+              onStop={stopSession}
+              formatDuration={formatDuration}
+            />
 
-            <Card radius="xl" shadow="sm" withBorder className="glass-card goals-card">
-              <Stack gap="sm">
-                <Title order={3}>Goals & Streaks</Title>
-                <Text size="sm" c="dimmed" className="section-subtitle">
-                  Keep your routine consistent and grow your streak.
-                </Text>
-                <Group grow>
-                  <NumberInput
-                    label="Daily Goal (minutes)"
-                    min={1}
-                    value={dailyGoalInput}
-                    onChange={(value) => setDailyGoalInput(String(value ?? ""))}
-                  />
-                  <NumberInput
-                    label="Weekly Goal (minutes)"
-                    min={1}
-                    value={weeklyGoalInput}
-                    onChange={(value) => setWeeklyGoalInput(String(value ?? ""))}
-                  />
-                </Group>
-                <Button variant="light" onClick={saveGoals}>
-                  Save Goals
-                </Button>
-                <Text size="sm">Today: {formatDuration(goals.todaySeconds)} / {formatDuration(goals.dailyGoalSeconds)}</Text>
-                <Progress value={goals.dailyPercent} radius="xl" />
-                <Text size="sm">This Week: {formatDuration(goals.weekSeconds)} / {formatDuration(goals.weeklyGoalSeconds)}</Text>
-                <Progress value={goals.weeklyPercent} radius="xl" color="cyan" />
-                <Group justify="space-between">
-                  <Badge size="lg" color="indigo" variant="light">
-                    Current streak: {streak.current} day(s)
-                  </Badge>
-                  <Badge size="lg" color="teal" variant="light">
-                    Best: {streak.best}
-                  </Badge>
-                </Group>
-              </Stack>
-            </Card>
+            <GoalsCard
+              dailyGoalInput={dailyGoalInput}
+              weeklyGoalInput={weeklyGoalInput}
+              goals={goals}
+              streak={streak}
+              onDailyGoalChange={setDailyGoalInput}
+              onWeeklyGoalChange={setWeeklyGoalInput}
+              onSaveGoals={saveGoals}
+              formatDuration={formatDuration}
+            />
           </SimpleGrid>
 
-          <Card radius="xl" shadow="sm" withBorder className="glass-card charts-card">
-            <Stack gap="sm">
-              <Title order={3}>Practice Charts</Title>
-              <Text size="sm" c="dimmed" className="section-subtitle">
-                Review daily, weekly, monthly, and yearly consistency.
-              </Text>
-              <SimpleGrid cols={{ base: 1, md: 2 }} spacing="sm">
-                <SegmentedControl
-                  fullWidth
-                  value={chartPeriod}
-                  onChange={setChartPeriod}
-                  data={[
-                    { value: "daily", label: "Daily" },
-                    { value: "weekly", label: "Weekly" },
-                    { value: "monthly", label: "Monthly" },
-                    { value: "yearly", label: "Yearly" },
-                  ]}
-                />
-                <Select
-                  data={chartHobbyOptions}
-                  value={chartHobby}
-                  onChange={(value) => setChartHobby(value || "__all__")}
-                />
-              </SimpleGrid>
-              <div className="chart-wrap">
-                {chartBuckets.map((bucket) => {
-                  const barHeight = Math.round((bucket.seconds / maxSeconds) * 160) + 6;
-                  return (
-                    <div className="chart-col" key={bucket.key}>
-                      <Text size="xs" c="dimmed">
-                        {formatChartTime(bucket.seconds)}
-                      </Text>
-                      <div className="chart-bar" style={{ height: `${barHeight}px` }} title={formatDuration(bucket.seconds)} />
-                      <Text size="xs" fw={700}>
-                        {bucket.label}
-                      </Text>
-                    </div>
-                  );
-                })}
-              </div>
-            </Stack>
-          </Card>
+          <ChartsCard
+            chartPeriod={chartPeriod}
+            chartHobby={chartHobby}
+            chartHobbyOptions={chartHobbyOptions}
+            chartBuckets={chartBuckets}
+            maxSeconds={maxSeconds}
+            onChartPeriodChange={setChartPeriod}
+            onChartHobbyChange={setChartHobby}
+            formatChartTime={formatChartTime}
+            formatDuration={formatDuration}
+          />
 
           <SimpleGrid cols={{ base: 1, md: 2 }} spacing="md">
-            <Card radius="xl" shadow="sm" withBorder className="glass-card totals-card">
-              <Stack gap="sm">
-                <Title order={3}>Totals by Hobby</Title>
-                {totals.length === 0 ? (
-                  <Text c="dimmed">No tracked time yet.</Text>
-                ) : (
-                  totals.map(([hobby, seconds]) => (
-                    <Paper key={hobby} withBorder p="sm" radius="md" className="row-paper">
-                      <Group justify="space-between">
-                        <Text>{hobby}</Text>
-                        <Text fw={700}>{formatDuration(seconds)}</Text>
-                      </Group>
-                    </Paper>
-                  ))
-                )}
-              </Stack>
-            </Card>
-
-            <Card radius="xl" shadow="sm" withBorder className="glass-card sessions-card">
-              <Stack gap="sm">
-                <Title order={3}>Recent Sessions</Title>
-                {state.sessions.length === 0 ? (
-                  <Text c="dimmed">No sessions yet.</Text>
-                ) : (
-                  state.sessions.map((session, index) => (
-                    <Paper key={`${session.endedAt}-${index}`} withBorder p="sm" radius="md" className="row-paper">
-                      <Group justify="space-between" align="flex-start">
-                        <Text size="sm">{session.hobby} · {new Date(session.endedAt).toLocaleString()}</Text>
-                        <Text fw={700} size="sm">{formatDuration(session.duration)}</Text>
-                      </Group>
-                    </Paper>
-                  ))
-                )}
-              </Stack>
-            </Card>
+            <TotalsCard totals={totals} formatDuration={formatDuration} />
+            <SessionsCard sessions={state.sessions} formatDuration={formatDuration} />
           </SimpleGrid>
 
-          <Card radius="xl" shadow="sm" withBorder className="glass-card reminders-card">
-            <Stack gap="sm">
-              <Title order={3}>Reminders</Title>
-              <Text c="dimmed" size="sm">Enable a daily prompt to keep your streak going.</Text>
-              <Group grow>
-                <TextInput type="time" value={reminderTimeInput} onChange={(event) => setReminderTimeInput(event.currentTarget.value)} />
-                <Button variant="light" onClick={saveReminderTime}>Save Time</Button>
-              </Group>
-              <Switch
-                checked={state.settings.reminderEnabled}
-                onChange={(event) => toggleReminders(event.currentTarget.checked)}
-                label={state.settings.reminderEnabled ? "Reminders enabled" : "Reminders disabled"}
-              />
-            </Stack>
-          </Card>
-
+          <RemindersCard
+            reminderTimeInput={reminderTimeInput}
+            reminderEnabled={state.settings.reminderEnabled}
+            onReminderTimeChange={setReminderTimeInput}
+            onSaveReminderTime={saveReminderTime}
+            onToggleReminders={toggleReminders}
+          />
         </Stack>
       </Container>
     </div>
@@ -1342,40 +1097,6 @@ function createAuthProvider(providerId) {
   }
 
   throw new Error("Unsupported sign-in provider");
-}
-
-function GoogleLogoIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        fill="#EA4335"
-        d="M12 10.2v3.9h5.4c-.2 1.3-1.6 3.9-5.4 3.9-3.3 0-6-2.7-6-6s2.7-6 6-6c1.9 0 3.2.8 3.9 1.5l2.7-2.6C16.9 3.3 14.7 2.4 12 2.4 6.8 2.4 2.6 6.6 2.6 11.8S6.8 21.2 12 21.2c6.9 0 9.3-4.9 9.3-7.3 0-.5 0-.8-.1-1.1H12z"
-      />
-      <path
-        fill="#34A853"
-        d="M3.7 7.3l3.2 2.3C7.7 7.9 9.7 6 12 6c1.9 0 3.2.8 3.9 1.5l2.7-2.6C16.9 3.3 14.7 2.4 12 2.4c-3.7 0-6.9 2.1-8.3 4.9z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M12 21.2c2.6 0 4.8-.9 6.4-2.4l-3-2.5c-.8.6-1.9 1-3.4 1-2.8 0-5.1-1.9-5.9-4.4l-3.2 2.5c1.4 2.9 4.4 4.8 8.1 4.8z"
-      />
-      <path
-        fill="#4285F4"
-        d="M21.3 13.9c0-.5 0-.8-.1-1.1H12v3.9h5.4c-.3 1-1 1.8-2 2.5l3 2.5c1.8-1.7 2.9-4.2 2.9-7.8z"
-      />
-    </svg>
-  );
-}
-
-function AppleLogoIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        fill="currentColor"
-        d="M17.6 12.7c0-2.2 1.8-3.2 1.9-3.3-1-1.5-2.6-1.7-3.2-1.8-1.4-.1-2.7.8-3.4.8-.7 0-1.8-.8-3-.8-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 6.9 1.1 9 .7 1 1.6 2.1 2.8 2 .9 0 1.3-.6 2.4-.6 1.1 0 1.4.6 2.4.6 1 0 1.7-1 2.4-2 .8-1.1 1.1-2.2 1.1-2.3 0 0-2-.8-2-3.9zm-2.2-6.6c.6-.8 1-1.9.9-3-1 .1-2.1.7-2.8 1.5-.6.7-1.1 1.8-1 2.9 1 .1 2.1-.5 2.9-1.4z"
-      />
-    </svg>
-  );
 }
 
 function getMessage(error) {
