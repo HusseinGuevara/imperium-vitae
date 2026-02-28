@@ -854,8 +854,6 @@ function prepareState(input) {
     ? source.hobbies.filter((item) => typeof item === "string").map((item) => item.trim()).filter(Boolean)
     : [];
 
-  if (!hobbies.length) hobbies.push("Guitar Practice");
-
   const totals = {};
   if (source.totals && typeof source.totals === "object") {
     Object.entries(source.totals).forEach(([name, seconds]) => {
