@@ -1219,7 +1219,9 @@ function getFirebaseApp(firebaseConfig) {
 
 function createAuthProvider(providerId) {
   if (providerId === "google") {
-    return new GoogleAuthProvider();
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    return provider;
   }
 
   if (providerId === "apple") {
