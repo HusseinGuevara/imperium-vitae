@@ -1,4 +1,4 @@
-# Progress XP (React + Vite)
+# Imperium Vitae (React + Vite)
 
 This app is now built with React and deployed to GitHub Pages via GitHub Actions.
 
@@ -29,9 +29,11 @@ For Firebase auth to work on the live site, set these repository secrets in GitH
 
 Important: the secret values must be your real Firebase values (for example `AIza...`, `your-project.firebaseapp.com`), not the variable names.
 
+Also enable `Email/Password` in Firebase Authentication and add `husseinguevara.github.io` to your Firebase authorized domains.
+
 Live URL:
 
-`https://husseinguevara.github.io/HobbyTimer/`
+`https://husseinguevara.github.io/imperium-vitae/`
 
 ## iPhone Install
 
@@ -53,6 +55,17 @@ The app supports optional cross-device cloud sync using Firebase Firestore.
 4. Copy web app config values (`apiKey`, `authDomain`, `projectId`, `appId`) into the app's Cloud Sync section.
 5. Set the same `Sync ID` on each device.
 6. Use `Sync Up` and `Sync Down`.
+
+## Admin Login Checklist
+
+If the live app should require you to log in as the administrator:
+
+1. Create a Firebase project.
+2. Enable `Authentication` -> `Email/Password`.
+3. Enable `Firestore Database`.
+4. Add the repository secrets listed above in GitHub.
+5. Push to `main` so GitHub Pages rebuilds with the Firebase config.
+6. Open the live app and use `Create admin account` on the login screen.
 
 ## Social Login Checklist
 
